@@ -144,7 +144,6 @@ impl<S: 'static +  State> Framework<S>{
                 },
                 Event::DeviceEvent{device_id, event} => {
                     self.state.device_event(&mut self.fstate, &device_id, &event);
-                    println!("{:?}, {:?}", device_id, event);
                 }
 
                 Event::MainEventsCleared => {
