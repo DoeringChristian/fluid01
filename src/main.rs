@@ -13,6 +13,8 @@ mod wgpu_utils;
 #[derive(Clone, Copy, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 struct GlobalShaderData{
     size: [f32; 2],
+    time: f32,
+    _pad0: f32,
 }
 
 struct WinState{
@@ -23,6 +25,8 @@ struct WinState{
 
     tex0: Texture,
     tex1: Texture,
+
+    fc: usize,
 }
 
 impl State for WinState{
@@ -31,10 +35,13 @@ impl State for WinState{
 
         let global_uniform = UniformBindGroup::<GlobalShaderData>::new_with_data(&app.device, &GlobalShaderData{
             size: [app.size.width as f32, app.size.height as f32],
+            time: 0.0,
+            _pad0: 0.0,
         });
 
-        let tex0 = Texture::load_from_path(&app.device, &app.queue, "assets/test01.png", None, app.config.format).unwrap();
-        let tex1 = Texture::new_black(tex0.size, &app.device, &app.queue, None, app.config.format).unwrap();
+        //let tex0 = Texture::load_from_path(&app.device, &app.queue, "assets/test01.png", None, app.config.format).unwrap();
+        let tex0 = Texture::new_black([app.size.width as u32, app.size.height as u32], &app.device, &app.queue, None, wgpu::TextureFormat::Rgba32Float).unwrap();
+        let tex1 = Texture::new_black(tex0.size, &app.device, &app.queue, None, wgpu::TextureFormat::Rgba32Float).unwrap();
 
 
         // Initialize Pipeline
@@ -47,7 +54,7 @@ impl State for WinState{
             .build();
 
         let fluid_frag_state = FragmentStateBuilder::new(&fluid_frag_shader)
-            .push_target_replace(app.config.format)
+            .push_target_replace(wgpu::TextureFormat::Rgba32Float)
             .build();
 
         let fluid_render_pipeline_layout = PipelineLayoutBuilder::new()
@@ -87,6 +94,7 @@ impl State for WinState{
             global_uniform,
             tex0,
             tex1,
+            fc: 0,
         }
     }
 
@@ -98,20 +106,22 @@ impl State for WinState{
         });
 
         // fluid sim
-        {
-            let mut render_pass = RenderPassBuilder::new()
-                .push_color_attachment(self.tex1.view.color_attachment_clear())
-                .begin(&mut encoder, None);
+            {
+                let mut render_pass = RenderPassBuilder::new()
+                    .push_color_attachment(self.tex1.view.color_attachment_clear())
+                    .begin(&mut encoder, None);
 
-            let mut render_pass_pipeline = render_pass.set_pipeline(&self.fluid_render_pipeline);
-            render_pass_pipeline.set_bind_group("global", self.global_uniform.get_bind_group(), &[]);
-            render_pass_pipeline.set_bind_group("tex", self.tex0.get_bind_group(), &[]);
+                let mut render_pass_pipeline = render_pass.set_pipeline(&self.fluid_render_pipeline);
+                render_pass_pipeline.set_bind_group("global", self.global_uniform.get_bind_group(), &[]);
+                render_pass_pipeline.set_bind_group("tex", self.tex0.get_bind_group(), &[]);
 
-            self.mesh.draw(&mut render_pass_pipeline);
-        }
-        // copy texture back
-        {
-            self.tex1.copy_all_to(&mut self.tex0, &mut encoder);
+                self.mesh.draw(&mut render_pass_pipeline);
+            }
+            // copy texture back
+        if self.fc < 10000{
+            {
+                self.tex1.copy_all_to(&mut self.tex0, &mut encoder);
+            }
         }
 
         // render result to view.
@@ -122,11 +132,14 @@ impl State for WinState{
 
             let mut render_pass_pipeline = render_pass.set_pipeline(&self.display_rp);
             render_pass_pipeline.set_bind_group("global", self.global_uniform.get_bind_group(), &[]);
-            render_pass_pipeline.set_bind_group("tex", self.tex0.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group("tex", self.tex1.get_bind_group(), &[]);
 
             self.mesh.draw(&mut render_pass_pipeline);
         }
 
+        self.fc += 1;
+        self.global_uniform.get_content().time = self.fc as f32 / 60.0;
+        self.global_uniform.update_int(&app.queue);
 
         app.queue.submit(std::iter::once(encoder.finish()));
         output.present();

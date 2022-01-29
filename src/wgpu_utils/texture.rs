@@ -70,6 +70,7 @@ impl Texture{
                     | wgpu::TextureUsages::RENDER_ATTACHMENT
             }
         );
+        /*
         queue.write_texture(
             wgpu::ImageCopyTexture{
                 aspect: wgpu::TextureAspect::All,
@@ -85,6 +86,7 @@ impl Texture{
             },
             extent,
         );
+        */
         let texture_view_desc = wgpu::TextureViewDescriptor{
             format: Some(format),
             ..Default::default()
