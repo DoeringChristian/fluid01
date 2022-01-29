@@ -64,6 +64,7 @@ impl ToIdxBuffer for &[u32]{
     }
 }
 
+// TODO: remove new without data and add content directly as type.
 pub struct UniformBuffer<C>{
     buffer: wgpu::Buffer,
     content_type: PhantomData<C>,
@@ -99,6 +100,10 @@ impl<C: bytemuck::Pod> UniformBuffer<C>{
             content_type: PhantomData,
             content: Vec::new(),
         }
+    }
+
+    pub fn get_content(&mut self) -> &mut C{
+        bytemuck::from_bytes_mut(&mut self.content)
     }
 
     pub fn new_with_data(device: &wgpu::Device, src: &C) -> Self{
@@ -137,6 +142,10 @@ impl<C: bytemuck::Pod> UniformBuffer<C>{
 
         queue.write_buffer(&self.buffer, 0, new_content);
         self.content = new_content.to_vec();
+    }
+
+    pub fn update_int(&mut self, queue: &wgpu::Queue){
+        queue.write_buffer(&self.buffer, 0, &self.content);
     }
 
     pub fn binding_resource(&self) -> wgpu::BindingResource{
@@ -199,6 +208,14 @@ impl<C: bytemuck::Pod> UniformBindGroup<C>{
 
     pub fn update(&mut self, queue: &wgpu::Queue, src: &C){
         self.uniform_buffer.update(queue, src)
+    }
+
+    pub fn update_int(&mut self, queue: &wgpu::Queue){
+        self.uniform_buffer.update_int(queue);
+    }
+
+    pub fn get_content(&mut self) -> &mut C{
+        self.uniform_buffer.get_content()
     }
 }
 

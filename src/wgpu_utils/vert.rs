@@ -18,10 +18,10 @@ pub struct Vert2{
 
 impl Vert2{
     pub const QUAD_VERTS: [Vert2; 4] = [
-        Vert2{pos: [-1.0, -1.0], uv: [0.0, 0.0]},
-        Vert2{pos: [1.0, -1.0], uv: [1.0, 0.0]},
-        Vert2{pos: [1.0, 1.0], uv: [1.0, 1.0]},
-        Vert2{pos: [-1.0, 1.0], uv: [0.0, 1.0]},
+        Vert2{pos: [-1.0, -1.0], uv: [0.0, 1.0]},
+        Vert2{pos: [1.0, -1.0], uv: [1.0, 1.0]},
+        Vert2{pos: [1.0, 1.0], uv: [1.0, 0.0]},
+        Vert2{pos: [-1.0, 1.0], uv: [0.0, 0.0]},
     ];
 
     pub const QUAD_IDXS: [u32; 6] = [
