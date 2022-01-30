@@ -3,7 +3,7 @@
 layout(location = 0) in vec2 f_pos;
 layout(location = 1) in vec2 f_uv;
 
-layout(location = 0) out vec4 c;
+layout(location = 0) out vec4 vo;
 
 layout(set = 0, binding = 0) uniform GlobalData{
     vec2 size;
@@ -13,7 +13,7 @@ layout(set = 0, binding = 0) uniform GlobalData{
 layout(set = 1, binding = 0) uniform texture2D t_tex;
 layout(set = 1, binding = 1) uniform sampler s_tex;
 
-vec4 f(vec2 pos){
+vec4 v(vec2 pos){
     return texture(sampler2D(t_tex, s_tex), pos/global_data.size);
 }
 
@@ -88,11 +88,8 @@ float simplex3d(vec3 p) {
 /*****************************************************************************/
 
 
-vec2 pen(float t) {
-    t *= 0.05;
-    return 0.5 * global_data.size.xy *
-        vec2(simplex3d(vec3(t,0,0)) + 1.,
-             simplex3d(vec3(0,t,0)) + 1.);
+vec2 pen(float t){
+    return vec2(cos(t) * 200, sin(t) * 200) * cos(t * 3.1415926) + vec2(300, 300);
 }
 #endif
 
@@ -111,30 +108,30 @@ vec2 pen(float t) {
 void main(){
     vec2 p = f_uv * global_data.size;
 
-    c = f(p);
+    vo = v(p);
 
-    vec4 fpx = f(p + vec2(1.0, 0.0));
-    vec4 fnx = f(p + vec2(-1.0, 0.0));
-    vec4 fpy = f(p + vec2(0.0, 1.0));
-    vec4 fny = f(p + vec2(0.0, -1.0));
+    vec4 vpx = v(p + vec2(1.0, 0.0));
+    vec4 vnx = v(p + vec2(-1.0, 0.0));
+    vec4 vpy = v(p + vec2(0.0, 1.0));
+    vec4 vny = v(p + vec2(0.0, -1.0));
 
-    vec4 lap = (fpx + fnx + fpy + fny - 4*f(p));
+    vec4 lap = (vpx + vnx + vpy + vny - 4*v(p));
 
-    vec4 dx = (fpx - fnx) / 2.0;
-    vec4 dy = (fpy - fny) / 2.0;
+    vec4 dx = (vpx - vnx) / 2.0;
+    vec4 dy = (vpy - vny) / 2.0;
 
     float div = dx.x + dy.y;
 
-    c.z -= dt*(dx.z * c.x + dy.z * c.y + div * c.z);
+    vo.z -= dt*(dx.z * vo.x + dy.z * vo.y + div * vo.z);
 
-    c.xyw = f(p - dt*c.xy).xyw;
+    vo.xy = v(p - dt*vo.xy).xy;
 
-    c.xyw += dt * vec3(nu, nu, kappa) * lap.xyw;
+    vo.xy += dt * vec2(nu, nu) * lap.xy;
 
-    c.xy -= K * vec2(dx.z, dy.z);
+    vo.xy -= K * vec2(dx.z, dy.z);
 
     vec2 m = pen(global_data.time);
-    c.xyw += dt * exp(-length2(p - m)/50.0) * vec3(m - pen(global_data.time - 0.1), 1);
+    vo.xy += dt * exp(-length2(p - m)/50.0) * vec2(m - pen(global_data.time - 0.1));
 
-    c.xyzw = clamp(c.xyzw, vec4(-5.0, -5.0, 0.5, 0.0), vec4(5.0, 5.0, 3.0, 5.0));
+    vo.xyzw = clamp(vo.xyzw, vec4(-5.0, -5.0, 0.5, 0.0), vec4(5.0, 5.0, 3.0, 5.0));
 }

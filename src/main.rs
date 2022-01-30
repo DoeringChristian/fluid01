@@ -47,7 +47,7 @@ impl State for WinState{
         // Initialize Pipeline
         //
         let fluid_vert_shader = shader_with_shaderc(&app.device, include_str!("shaders/vert_test01.glsl"), shaderc::ShaderKind::Vertex, "main", None).unwrap();
-        let fluid_frag_shader = shader_with_shaderc(&app.device, include_str!("shaders/frag_fluid01.glsl"), shaderc::ShaderKind::Fragment, "main", None).unwrap();
+        let fluid_frag_shader = shader_with_shaderc(&app.device, include_str!("shaders/frag_nvs.glsl"), shaderc::ShaderKind::Fragment, "main", None).unwrap();
 
         let fluid_vert_state = VertexStateBuilder::new(&fluid_vert_shader)
             .push_named("model", mesh.vert_buffer_layout())
