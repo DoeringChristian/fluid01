@@ -23,9 +23,15 @@ vec2 pen(float t){
 
 
 void main(){
+
+    // x,y: velocity field,
+    // z: preasure field,
+    // w: fluidity
+
     float K = 0.2;
     float nu = 0.5;
     float dt = 0.15;
+    float kappa = 0.1;
 
     if(f_uv.y > 0.5){
         //K = 0.01;
@@ -59,25 +65,46 @@ void main(){
 
     float div = dx.x + dy.y;
 
+
+    // Adjust viscosity:
+    K *= vo.w;
+
     // mass conservation
     //           ((\nabla p) \cdot u)       + (p \cdot (\nabla u))
     vo.z -= dt * (dx.z * vo.x + dy.z * vo.y + vo.z * div );
 
-    // semi-Langrangian advection (shift the field allong the field)
+    // -----------------------------------------------------------------------------
+    // Semi-Langrangian Advection:
+    //
+    // semi-Langrangian advection for velocity field (shift the field allong the field)
     vo.xy = v(r - dt * vo.xy).xy;
 
-    // viscosity/diffusion
+    // semi-Langrangian advection for fluidity
+    vo.w = v(r - dt * vo.xy).w;
+
+    // -----------------------------------------------------------------------------
+    // Viscosity/Diffusion:
+    // for velocity field:
     vo.xy += dt * vec2(nu, nu) * lapl.xy;
 
-    // nullify divergence
+    // for fluidity field:
+    vo.w += dt * kappa * lapl.w;
+
+    // -----------------------------------------------------------------------------
+    // Nullify Divergence:
     vo.xy -= K * vec2(dx.z, dy.z);
 
-    // external source
+    // -----------------------------------------------------------------------------
+    // External Sources:
+    // pen source: 
     vec2 m = pen(global_data.time);
     vo.xy += dt * exp(-(dot(r-m, r-m))/50.) * vec2(m - pen(global_data.time-0.1));
+    vo.w += dt * exp(-(dot(r-m, r-m))/50.);
 
     if(f_uv.y > 0.5){
     }
+
+    vo.w -= dt * 0.0005;
 
     vo.xyzw = clamp(vo.xyzw, vec4(-5, -5, 0.5, 0), vec4(5, 5, 3, 5));
 }
