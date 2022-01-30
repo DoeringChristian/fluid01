@@ -18,7 +18,7 @@ vec4 v(vec2 pos){
 }
 
 vec2 pen(float t){
-    return vec2(cos(t) * 200, sin(t) * 200) * cos(t * 3.1415926) + vec2(300, 300);
+    return vec2(cos(t/4.) * 200, sin(t/4.) * 200) * cos(t/10.) + vec2(300, 300);
 }
 
 
@@ -31,15 +31,10 @@ void main(){
     float K = 0.2;
     float nu = 0.5;
     float dt = 0.15;
-    float kappa = 0.1;
+    float kappa = 1.0;
 
     if(f_uv.y > 0.5){
         //K = 0.01;
-    }
-
-    if(global_data.time > 10.0){
-        K = 0.0;
-        nu = 0.0;
     }
 
     vec2 r = f_uv * global_data.size;
@@ -65,8 +60,9 @@ void main(){
 
     float div = dx.x + dy.y;
 
-
-    // Adjust viscosity:
+    // -----------------------------------------------------------------------------
+    // Addjust the Viscosity and diffusion:
+    nu *= vo.w * 0.5;
     K *= vo.w;
 
     // mass conservation
@@ -77,18 +73,14 @@ void main(){
     // Semi-Langrangian Advection:
     //
     // semi-Langrangian advection for velocity field (shift the field allong the field)
-    vo.xy = v(r - dt * vo.xy).xy;
+    vo.xyw = v(r - dt * vo.xy).xyw;
 
-    // semi-Langrangian advection for fluidity
-    vo.w = v(r - dt * vo.xy).w;
 
     // -----------------------------------------------------------------------------
     // Viscosity/Diffusion:
     // for velocity field:
-    vo.xy += dt * vec2(nu, nu) * lapl.xy;
+    vo.xyw += dt * vec3(nu, nu, kappa) * lapl.xyw;
 
-    // for fluidity field:
-    vo.w += dt * kappa * lapl.w;
 
     // -----------------------------------------------------------------------------
     // Nullify Divergence:
@@ -98,13 +90,12 @@ void main(){
     // External Sources:
     // pen source: 
     vec2 m = pen(global_data.time);
-    vo.xy += dt * exp(-(dot(r-m, r-m))/50.) * vec2(m - pen(global_data.time-0.1));
-    vo.w += dt * exp(-(dot(r-m, r-m))/50.);
+    vo.xyw += dt * exp(-(dot(r-m, r-m))/50.) * vec3(m - pen(global_data.time-0.1), 1.);
 
     if(f_uv.y > 0.5){
     }
 
     vo.w -= dt * 0.0005;
 
-    vo.xyzw = clamp(vo.xyzw, vec4(-5, -5, 0.5, 0), vec4(5, 5, 3, 5));
+    vo.xyzw = clamp(vo.xyzw, vec4(-5., -5., 0.5, 0.), vec4(5., 5., 3., 5.));
 }
