@@ -353,9 +353,15 @@ pub fn shader_with_shaderc(device: &wgpu::Device, src: &str, kind: shaderc::Shad
     options.set_optimization_level(shaderc::OptimizationLevel::Performance);
     options.set_generate_debug_info();
 
+    options.add_macro_definition("VERTEX_SHADER", Some(if kind == shaderc::ShaderKind::Vertex {"1"} else {"0"}));
+    options.add_macro_definition("FRAGMENT_SHADER", Some(if kind == shaderc::ShaderKind::Fragment {"1"} else {"0"}));
+    options.add_macro_definition("COMPUTE_SHADER", Some(if kind == shaderc::ShaderKind::Compute {"1"} else {"0"}));
+
+    //println!("{:?}: \n{}", label, compiler.preprocess(src, "preprocess", entry_point, Some(&options)).unwrap().as_text());
+
     let spirv = match label{
-        Some(label) => compiler.compile_into_spirv(src, kind, label, entry_point, None)?,
-        _ => compiler.compile_into_spirv(src, kind, "no_label", entry_point, None)?,
+        Some(label) => compiler.compile_into_spirv(src, kind, label, entry_point, Some(&options))?,
+        _ => compiler.compile_into_spirv(src, kind, "no_label", entry_point, Some(&options))?,
     };
 
     let module = device.create_shader_module(&wgpu::ShaderModuleDescriptor{
