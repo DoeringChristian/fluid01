@@ -152,19 +152,24 @@ void main(){
     
     // How much of the dried color is picked up.
     // (The faster the liquid the more it picks up)
-    float pickup = length(vo.xy) / VMAX;
+    float pickup = length(vo.xy)/VMAX;
     // How much particulate is falling out.
     // (At slower velocities more particulate falls out)
-    float fallout = (1 - length(vo.xy)/VMAX);
+    float fallout = 0.0;
     vec4 brush_color = vec4(1.0, 0.0, 0.0, 0.1);
 
     // TODO: Alpha of float as ammount of particulate.
     // Add picked up particulate to floating particulate and remove fallout.
-    o_float = tex(r - dt * vo.xy, t_tex_float, s_tex_float) * (1. - fallout) + tex(r, t_tex_color, s_tex_color) * pickup + exp(-dot(r-m, r-m)/50.) * brush_color;
+
+    o_float = tex(r - dt * vo.xy, t_tex_float, s_tex_float) * vo.w + tex(r, t_tex_color, s_tex_color) * length(vo.xy)/VMAX;
+    if(length(r - vec2(500, 300)) < 10){
+        o_float = vec4(1, 0, 0, 1);
+    }
 
     // TODO: Dry particulate over time so it is harder to pick up. (use vo.w as water level/fluidity)
     // Add Fallen out particulate to dried color and remove picked up particulate.
-    o_color.rgb = tex(r, t_tex_color, s_tex_color).rgb * (1. - pickup) + tex(r - dt * vo.xy, t_tex_float, s_tex_float).rgb * fallout;
+    //o_color.rgb = tex(r, t_tex_color, s_tex_color).rgb * (1. - pickup) + tex(r - dt * vo.xy, t_tex_float, s_tex_float).rgb * fallout;
+    o_color.rgb = tex(r, t_tex_color, s_tex_color).rgb * (1 - length(vo.xy)/VMAX) + tex(r - dt * vo.xy, t_tex_float, s_tex_float).rgb * (1. - vo.w);
 
     vo.w -= dt * 0.0005;
 }
