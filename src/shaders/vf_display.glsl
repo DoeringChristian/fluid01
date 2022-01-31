@@ -25,11 +25,32 @@ layout(set = 0, binding = 0) uniform GlobalData{
     vec2 size;
 } global_data;
 
-layout(set = 1, binding = 0) uniform texture2D t_tex;
-layout(set = 1, binding = 1) uniform sampler s_tex;
+layout(set = 1, binding = 0) uniform texture2D t_tex_vpf;
+layout(set = 1, binding = 1) uniform sampler s_tex_vpf;
+layout(set = 2, binding = 0) uniform texture2D t_tex_color;
+layout(set = 2, binding = 1) uniform sampler s_tex_color;
+layout(set = 3, binding = 0) uniform texture2D t_tex_float;
+layout(set = 3, binding = 1) uniform sampler s_tex_float;
 
 void main(){
-    o_color = texture(sampler2D(t_tex, s_tex), f_uv);
-    //o_color = vec4(vec3(texture(sampler2D(t_tex, s_tex), f_uv).w), 1.0);
+    o_color = vec4(0.0, 0.0, 0.0, 1.0);
+
+    vec4 tex_vpf = texture(sampler2D(t_tex_vpf, s_tex_vpf), f_uv * 2. - vec2(0., 0.));
+    vec4 tex_color = texture(sampler2D(t_tex_color, s_tex_color), f_uv * 2. - vec2(1., 0.));
+    vec4 tex_float = texture(sampler2D(t_tex_float, s_tex_float), f_uv * 2. - vec2(0., 1.));
+    float tex_f = texture(sampler2D(t_tex_vpf, s_tex_vpf), f_uv * 2. - vec2(1., 1.)).w;
+
+    if(f_uv.x < 0.5 && f_uv.y < 0.5){
+        o_color = tex_vpf;
+    }
+    else if(f_uv.x > 0.5 && f_uv.y < 0.5){
+        o_color = tex_color;
+    }
+    else if(f_uv.x < 0.5 && f_uv.y > 0.5){
+        o_color = tex_float;
+    }
+    else if(f_uv.x > 0.5 && f_uv.y > 0.5){
+        o_color = vec4(vec3(tex_f), 1.0);
+    }
 }
 #endif

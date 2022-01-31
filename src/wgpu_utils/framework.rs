@@ -13,7 +13,8 @@ use winit::{
 
 pub trait State{
     fn new(fstate: &mut AppState) -> Self;
-    fn render(&mut self, fstate: &mut AppState, control_flow: &mut ControlFlow) -> Result<(), wgpu::SurfaceError>{Ok(())}
+    fn render(&mut self, app: &mut AppState, control_flow: &mut ControlFlow) -> Result<(), wgpu::SurfaceError>{Ok(())}
+    fn pre_render(&mut self, app: &mut AppState, control_flow: &mut ControlFlow) -> Result<(), wgpu::SurfaceError>{Ok(())}
     fn input(&mut self, event: &WindowEvent) -> bool{false}
     fn cursor_moved(&mut self, fstate: &mut AppState, device_id: &winit::event::DeviceId, position: &winit::dpi::PhysicalPosition<f64>){}
     fn device_event(&mut self, fstate: &mut AppState, device_id: &winit::event::DeviceId, device_event: &DeviceEvent){}
@@ -27,6 +28,7 @@ pub struct AppState{
     pub config: wgpu::SurfaceConfiguration,
     pub size: winit::dpi::PhysicalSize<u32>,
     pub window: Window,
+    pub frame_count: usize,
 }
 
 impl AppState{
@@ -67,6 +69,7 @@ impl AppState{
             config,
             size,
             window,
+            frame_count: 0,
         }
     }
 
@@ -82,7 +85,7 @@ impl AppState{
 }
 
 pub struct Framework<S: State>{
-    fstate: AppState,
+    app: AppState,
     state: S,
     event_loop: EventLoop<()>,
 }
@@ -97,12 +100,12 @@ impl<S: 'static +  State> Framework<S>{
             .with_inner_size(winit::dpi::LogicalSize::new(size[0], size[1]))
             .build(&event_loop).unwrap();
 
-        let mut fstate = pollster::block_on(AppState::new(window));
+        let mut app = pollster::block_on(AppState::new(window));
 
-        let state = S::new(&mut fstate);
+        let state = S::new(&mut app);
 
         Self{
-            fstate,
+            app,
             state,
             event_loop,
         }
@@ -114,41 +117,52 @@ impl<S: 'static +  State> Framework<S>{
                 Event::WindowEvent{
                     ref event,
                     window_id,
-                } if window_id == self.fstate.window.id() => if !self.state.input(event){
+                } if window_id == self.app.window.id() => if !self.state.input(event){
                     match event{
                         WindowEvent::CloseRequested => *control_flow = ControlFlow::Exit,
                         WindowEvent::Resized(physical_size) => {
-                            self.fstate.resize(*physical_size);
-                            self.state.resize(&mut self.fstate, *physical_size);
+                            self.app.resize(*physical_size);
+                            self.state.resize(&mut self.app, *physical_size);
                         },
 
                         WindowEvent::ScaleFactorChanged{new_inner_size, ..} => {
-                            self.fstate.resize(**new_inner_size);
-                            self.state.resize(&mut self.fstate, **new_inner_size);
+                            self.app.resize(**new_inner_size);
+                            self.state.resize(&mut self.app, **new_inner_size);
                         },
                         WindowEvent::CursorMoved{device_id, position, ..} => {
-                            self.state.cursor_moved(&mut self.fstate, device_id, position);
+                            self.state.cursor_moved(&mut self.app, device_id, position);
                         }
                         _ => {},
                     }
                 },
 
-                Event::RedrawRequested(window_id) if window_id == self.fstate.window.id() => {
-                    match self.state.render(&mut self.fstate, control_flow){
+                Event::RedrawRequested(window_id) if window_id == self.app.window.id() => {
+                    if self.app.frame_count == 0{
+                        match self.state.pre_render(&mut self.app, control_flow){
+                            Ok(_) => {}
+
+                            Err(wgpu::SurfaceError::Lost) => self.app.resize(self.app.size),
+                            Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
+
+                            Err(e) => eprintln!("{:?}", e),
+                        }
+                    }
+                    match self.state.render(&mut self.app, control_flow){
                         Ok(_) => {}
 
-                        Err(wgpu::SurfaceError::Lost) => self.fstate.resize(self.fstate.size),
+                        Err(wgpu::SurfaceError::Lost) => self.app.resize(self.app.size),
                         Err(wgpu::SurfaceError::OutOfMemory) => *control_flow = ControlFlow::Exit,
 
                         Err(e) => eprintln!("{:?}", e),
                     }
+                    self.app.frame_count += 1;
                 },
                 Event::DeviceEvent{device_id, event} => {
-                    self.state.device_event(&mut self.fstate, &device_id, &event);
+                    self.state.device_event(&mut self.app, &device_id, &event);
                 }
 
                 Event::MainEventsCleared => {
-                    self.fstate.window.request_redraw();
+                    self.app.window.request_redraw();
                 },
                 _ => {}
             }

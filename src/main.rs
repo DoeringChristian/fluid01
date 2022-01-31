@@ -38,7 +38,7 @@ impl State for WinState{
             _pad0: 0.0,
         });
 
-        let paintsim = paintsim::PaintSim::new(&app.device, &app.queue, "assets/test02.png").unwrap();
+        let paintsim = paintsim::PaintSim::new(&app.device, &app.queue, "assets/test03.jpg").unwrap();
 
         // Init display pipeline.
         let display_vsh = shader_with_shaderc(&app.device, include_str!("shaders/vf_display.glsl"), shaderc::ShaderKind::Vertex, "main", None).unwrap();
@@ -54,7 +54,9 @@ impl State for WinState{
 
         let display_rpl = PipelineLayoutBuilder::new()
             .push_named("global", global_uniform.get_bind_group_layout())
-            .push_named("tex", &Texture::create_bind_group_layout(&app.device, None))
+            .push_named("tex_vpf", &Texture::create_bind_group_layout(&app.device, None))
+            .push_named("tex_color", &Texture::create_bind_group_layout(&app.device, None))
+            .push_named("tex_float", &Texture::create_bind_group_layout(&app.device, None))
             .create(&app.device, None);
 
         let display_rp = RenderPipelineBuilder::new(display_vst, display_fst)
@@ -78,7 +80,7 @@ impl State for WinState{
             label: Some("Render Encoder"),
         });
 
-        self.paintsim.update(&app.queue, &mut encoder);
+        self.paintsim.step(&app.queue, &mut encoder);
 
         // render result to view.
         {
@@ -88,7 +90,9 @@ impl State for WinState{
 
             let mut render_pass_pipeline = render_pass.set_pipeline(&self.display_rp);
             render_pass_pipeline.set_bind_group("global", self.global_uniform.get_bind_group(), &[]);
-            render_pass_pipeline.set_bind_group("tex", self.paintsim.tex_vpf.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group("tex_vpf", self.paintsim.tex_vpf.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group("tex_color", self.paintsim.tex_color.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group("tex_float", self.paintsim.tex_float.get_bind_group(), &[]);
 
             self.mesh.draw(&mut render_pass_pipeline);
         }
@@ -100,6 +104,18 @@ impl State for WinState{
 
         app.queue.submit(std::iter::once(encoder.finish()));
         output.present();
+
+        Ok(())
+    }
+
+    fn pre_render(&mut self, app: &mut wgpu_utils::framework::AppState, control_flow: &mut winit::event_loop::ControlFlow) -> Result<(), wgpu::SurfaceError> {
+        let mut encoder = app.device.create_command_encoder(&wgpu::CommandEncoderDescriptor{
+            label: Some("PreRenderEncoder"),
+        });
+
+        self.paintsim.prepare(&app.queue, &mut encoder);
+
+        app.queue.submit(std::iter::once(encoder.finish()));
 
         Ok(())
     }
