@@ -189,6 +189,34 @@ pub trait BindGroupContent{
     fn push_resources_to<'bgb>(&'bgb self, bind_group_builder: &mut BindGroupBuilder<'bgb>);
 }
 
+macro_rules! bind_group_content_for_tuple{
+    ($($name:ident)+) => {
+        impl<$($name: BindGroupContent),+> BindGroupContent for ($($name, )+){
+            fn push_entries_to(&self, bind_group_layout_builder: &mut BindGroupLayoutBuilder){
+                let ($($name, )+) = self;
+                ($($name.push_entries_to(bind_group_layout_builder),)+);
+            }
+            fn push_resources_to<'bgb>(&'bgb self, bind_group_builder: &mut BindGroupBuilder<'bgb>){
+                let ($($name, )+) = self;
+                ($($name.push_resources_to(bind_group_builder),)+);
+            }
+        }
+    }
+}
+
+bind_group_content_for_tuple!{ A }
+bind_group_content_for_tuple!{ A B }
+bind_group_content_for_tuple!{ A B C }
+bind_group_content_for_tuple!{ A B C D }
+bind_group_content_for_tuple!{ A B C D E }
+bind_group_content_for_tuple!{ A B C D E F }
+bind_group_content_for_tuple!{ A B C D E F G }
+bind_group_content_for_tuple!{ A B C D E F G H }
+bind_group_content_for_tuple!{ A B C D E F G H I }
+bind_group_content_for_tuple!{ A B C D E F G H I J }
+bind_group_content_for_tuple!{ A B C D E F G H I J K }
+bind_group_content_for_tuple!{ A B C D E F G H I J K L }
+
 pub struct BindGroup<C: BindGroupContent>{
     pub content: C,
     bind_group: wgpu::BindGroup,

@@ -281,6 +281,18 @@ impl CreateBindGroup for Texture{
     }
 }
 
+impl BindGroupContent for Texture{
+    fn push_entries_to(&self, bind_group_layout_builder: &mut BindGroupLayoutBuilder) {
+        bind_group_layout_builder.push_entry_all_ref(binding::wgsl::texture_2d());
+        bind_group_layout_builder.push_entry_all_ref(binding::wgsl::sampler());
+    }
+
+    fn push_resources_to<'bgb>(&'bgb self, bind_group_builder: &mut BindGroupBuilder<'bgb>) {
+        bind_group_builder.texture_ref(&self.view);
+        bind_group_builder.sampler_ref(&self.sampler);
+    }
+}
+
 /// TODO: remove.
 impl GetBindGroupLayout for Texture{
     fn get_bind_group_layout<'l>(&'l self) -> &'l BindGroupLayoutWithDesc {
