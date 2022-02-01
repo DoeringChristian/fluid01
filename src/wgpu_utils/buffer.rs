@@ -1,6 +1,7 @@
 use anyhow::*;
 use wgpu::util::DeviceExt;
 use std::marker::PhantomData;
+use binding::CreateBindGroupLayout;
 
 use super::binding;
 
@@ -65,14 +66,14 @@ impl ToIdxBuffer for &[u32]{
 }
 
 // TODO: remove new without data and add content directly as type.
-pub struct UniformBuffer<C>{
+pub struct Uniform<C>{
     buffer: wgpu::Buffer,
     content_type: PhantomData<C>,
 
-    content: Vec<u8>,
+    content: C,
 }
 
-impl<C: bytemuck::Pod> UniformBuffer<C>{
+impl<C: bytemuck::Pod> Uniform<C>{
     fn name() -> &'static str{
         let type_name = std::any::type_name::<C>();
         let pos = type_name.rfind(':').unwrap();
@@ -95,15 +96,15 @@ impl<C: bytemuck::Pod> UniformBuffer<C>{
             .resource(buffer.as_entire_binding())
             .create(device, None);
 
-        UniformBuffer{
+        Uniform{
             buffer,
             content_type: PhantomData,
-            content: Vec::new(),
+            content: C::zeroed(),
         }
     }
 
     pub fn get_content(&mut self) -> &mut C{
-        bytemuck::from_bytes_mut(&mut self.content)
+        &mut self.content
     }
 
     pub fn new_with_data(device: &wgpu::Device, src: &C) -> Self{
@@ -130,22 +131,22 @@ impl<C: bytemuck::Pod> UniformBuffer<C>{
         Self{
             buffer,
             content_type: PhantomData,
-            content: bytemuck::bytes_of(src).to_vec(),
+            content: *src,
         }
     }
 
     pub fn update(&mut self, queue: &wgpu::Queue, src: &C){
         let new_content = bytemuck::bytes_of(src);
-        if self.content == new_content{
+        if bytemuck::bytes_of(&self.content) == new_content{
             return;
         }
 
         queue.write_buffer(&self.buffer, 0, new_content);
-        self.content = new_content.to_vec();
+        self.content = *src;
     }
 
     pub fn update_int(&mut self, queue: &wgpu::Queue){
-        queue.write_buffer(&self.buffer, 0, &self.content);
+        queue.write_buffer(&self.buffer, 0, bytemuck::bytes_of(&self.content));
     }
 
     pub fn binding_resource(&self) -> wgpu::BindingResource{
@@ -154,7 +155,42 @@ impl<C: bytemuck::Pod> UniformBuffer<C>{
 
 }
 
+impl<C: bytemuck::Pod> binding::BindGroupContent for Uniform<C>{
+    fn push_entries_to(&self, bind_group_layout_builder: &mut binding::BindGroupLayoutBuilder) {
+        bind_group_layout_builder.push_entry_all_ref(binding::wgsl::uniform());
+    }
 
+    fn push_resources_to<'bgb>(&'bgb self, bind_group_builder: &mut binding::BindGroupBuilder<'bgb>) {
+        bind_group_builder.resource_ref(self.buffer.as_entire_binding());
+    }
+}
+
+impl<C: bytemuck::Pod> binding::CreateBindGroupLayout for Uniform<C>{
+    fn create_bind_group_layout(device: &wgpu::Device, label: Option<&str>) -> binding::BindGroupLayoutWithDesc {
+        binding::BindGroupLayoutBuilder::new()
+            .push_entry_all(binding::wgsl::uniform())
+            .create(device, None)
+    }
+}
+
+impl<C: bytemuck::Pod> binding::CreateBindGroup for Uniform<C>{
+    fn create_bind_group(&self, device: &wgpu::Device, layout: &binding::BindGroupLayoutWithDesc, label: Option<&str>) -> wgpu::BindGroup {
+        let bind_group_layout = Uniform::<C>::create_bind_group_layout(device, None);
+        binding::BindGroupBuilder::new(&bind_group_layout)
+            .resource(self.buffer.as_entire_binding())
+            .create(device, label)
+    }
+}
+
+pub type UniformBindGroup<C> = binding::BindGroup<Uniform<C>>;
+
+impl<C: bytemuck::Pod> UniformBindGroup<C>{
+    pub fn new_with_data(device: &wgpu::Device, src: &C) -> Self{
+        binding::BindGroup::new(Uniform::new_with_data(device, src), device)
+    }
+}
+
+/*
 pub struct UniformBindGroup<C>{
     uniform_buffer: UniformBuffer<C>,
 
@@ -231,10 +267,19 @@ impl<C: bytemuck::Pod> binding::GetBindGroup for UniformBindGroup<C>{
     }
 }
 
-impl<C: bytemuck::Pod> binding::ToBindGroupLayout for UniformBindGroup<C>{
+impl<C: bytemuck::Pod> binding::CreateBindGroupLayout for UniformBindGroup<C>{
     fn create_bind_group_layout(device: &wgpu::Device, label: Option<&str>) -> binding::BindGroupLayoutWithDesc {
         binding::BindGroupLayoutBuilder::new()
             .push_entry_all(binding::wgsl::uniform())
             .create(device, None)
     }
 }
+
+impl<C: bytemuck::Pod> binding::CreateBindGroupLayoutVT for UniformBindGroup<C>{
+    fn create_bind_group_layout_vt(&self, device: &wgpu::Device, label: Option<&str>) -> binding::BindGroupLayoutWithDesc {
+        binding::BindGroupLayoutBuilder::new()
+            .push_entry_all(binding::wgsl::uniform())
+            .create(device, label)
+    }
+}
+*/

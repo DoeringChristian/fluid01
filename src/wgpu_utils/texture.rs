@@ -263,7 +263,7 @@ impl RenderTarget for Texture{
     }
 }
 
-impl ToBindGroupLayout for Texture{
+impl CreateBindGroupLayout for Texture{
     fn create_bind_group_layout(device: &wgpu::Device, label: Option<&str>) -> BindGroupLayoutWithDesc{
         BindGroupLayoutBuilder::new()
             .push_entry_all(binding::wgsl::texture_2d())
@@ -272,7 +272,7 @@ impl ToBindGroupLayout for Texture{
     }
 }
 
-impl ToBindGroup for Texture{
+impl CreateBindGroup for Texture{
     fn create_bind_group(&self, device: &wgpu::Device, layout: &BindGroupLayoutWithDesc, label: Option<&str>) -> wgpu::BindGroup {
         BindGroupBuilder::new(layout)
             .texture(&self.view)

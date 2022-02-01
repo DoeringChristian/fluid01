@@ -38,13 +38,14 @@ void main(){
     vec4 tex_vpf = texture(sampler2D(t_tex_vpf, s_tex_vpf), f_uv * 2. - vec2(0., 0.));
     vec4 tex_color = texture(sampler2D(t_tex_color, s_tex_color), f_uv * 2. - vec2(1., 0.));
     vec4 tex_float = texture(sampler2D(t_tex_float, s_tex_float), f_uv * 2. - vec2(0., 1.));
+    vec4 tex_cf = texture(sampler2D(t_tex_color, s_tex_color), f_uv * 2. - vec2(1., 0.)) + texture(sampler2D(t_tex_float, s_tex_float), f_uv * 2. - vec2(1., 0.));
     float tex_f = texture(sampler2D(t_tex_vpf, s_tex_vpf), f_uv * 2. - vec2(1., 1.)).w;
 
     if(f_uv.x < 0.5 && f_uv.y < 0.5){
         o_color = tex_vpf;
     }
     else if(f_uv.x > 0.5 && f_uv.y < 0.5){
-        o_color = tex_color;
+        o_color = tex_cf;
     }
     else if(f_uv.x < 0.5 && f_uv.y > 0.5){
         o_color = tex_float;

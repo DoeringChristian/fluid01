@@ -1,5 +1,6 @@
+use bytemuck::Zeroable;
 use wgpu::RenderPipeline;
-use wgpu_utils::{framework::{State, Framework}, mesh::{Mesh, Drawable}, vert::Vert2, pipeline::{self, RenderPipelineBuilder, shader_with_shaderc, VertexStateBuilder, FragmentStateBuilder, PipelineLayoutBuilder, RenderPass, RenderPassBuilder}, render_target::ColorAttachment, buffer::UniformBindGroup, binding::{GetBindGroupLayout, GetBindGroup, ToBindGroupLayout}, texture::Texture};
+use wgpu_utils::{framework::{State, Framework}, mesh::{Mesh, Drawable}, vert::Vert2, pipeline::{self, RenderPipelineBuilder, shader_with_shaderc, VertexStateBuilder, FragmentStateBuilder, PipelineLayoutBuilder, RenderPass, RenderPassBuilder}, render_target::ColorAttachment, buffer::{UniformBindGroup, Uniform}, binding::{GetBindGroupLayout, GetBindGroup, CreateBindGroupLayout, BindGroup}, texture::Texture};
 
 #[macro_use]
 extern crate more_asserts;
@@ -21,7 +22,8 @@ struct GlobalShaderData{
 struct WinState{
     mesh: Mesh<Vert2>,
     display_rp: pipeline::RenderPipeline,
-    global_uniform: UniformBindGroup<GlobalShaderData>,
+    //global_uniform: UniformBindGroup<GlobalShaderData>,
+    global_uniform: BindGroup<Uniform<GlobalShaderData>>,
 
     paintsim: paintsim::PaintSim,
 
@@ -63,7 +65,6 @@ impl State for WinState{
             .set_layout(&display_rpl)
             .build(&app.device);
 
-
         Self{
             mesh,
             display_rp,
@@ -99,8 +100,8 @@ impl State for WinState{
 
         self.fc += 1;
         println!("time: {}", self.fc as f32/60.0);
-        self.global_uniform.get_content().time = self.fc as f32 / 60.0;
-        self.global_uniform.update_int(&app.queue);
+        self.global_uniform.content.get_content().time = self.fc as f32 / 60.0;
+        self.global_uniform.content.update_int(&app.queue);
 
         app.queue.submit(std::iter::once(encoder.finish()));
         output.present();
