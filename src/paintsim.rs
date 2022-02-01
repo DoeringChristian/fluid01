@@ -1,4 +1,4 @@
-use crate::wgpu_utils::binding::{GetBindGroupLayout, GetBindGroup};
+use crate::wgpu_utils::binding::{GetBindGroupLayout, GetBindGroup, BindGroup};
 use crate::wgpu_utils::buffer::UniformBindGroup;
 use crate::wgpu_utils::mesh::Drawable;
 use crate::wgpu_utils::pipeline::{shader_with_shaderc, VertexStateBuilder, FragmentStateBuilder, PipelineLayoutBuilder, RenderPipelineBuilder, RenderPassBuilder};
@@ -10,19 +10,19 @@ use anyhow::*;
 
 pub struct PaintSim{
     // texture storing the velocity, preasure and fluidity.
-    pub tex_vpf: Texture,
+    pub tex_vpf: BindGroup<Texture>,
     tex_vpf_tmp: Texture,
 
     // texture storing the color of the base layer.
-    pub tex_color: Texture,
+    pub tex_color: BindGroup<Texture>,
     tex_color_tmp: Texture,
 
     // texture stiring the floating particulate.
-    pub tex_float: Texture,
+    pub tex_float: BindGroup<Texture>,
     tex_float_tmp: Texture,
 
     // texture storing the initial image.
-    pub tex_src: Texture,
+    pub tex_src: BindGroup<Texture>,
 
     pipeline: pipeline::RenderPipeline,
 
@@ -39,15 +39,15 @@ impl PaintSim{
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, path: &str) -> Result<Self>{
         let mesh = Mesh::new(device, &Vert2::QUAD_VERTS, &Vert2::QUAD_IDXS)?;
 
-        let tex_src = Texture::load_from_path(device, queue, path, None, wgpu::TextureFormat::Rgba8Unorm)?;
+        let tex_src = BindGroup::new(Texture::load_from_path(device, queue, path, None, wgpu::TextureFormat::Rgba8Unorm)?, device);
 
-        let tex_vpf = Texture::new_black(tex_src.size, device, queue, None, wgpu::TextureFormat::Rgba32Float)?;
+        let tex_vpf = BindGroup::new(Texture::new_black(tex_src.size, device, queue, None, wgpu::TextureFormat::Rgba32Float)?, device);
         let tex_vpf_tmp = Texture::new_black(tex_src.size, device, queue, None, wgpu::TextureFormat::Rgba32Float)?;
 
-        let tex_color = Texture::new_black(tex_src.size, device, queue, None, wgpu::TextureFormat::Rgba32Float)?; 
+        let tex_color = BindGroup::new(Texture::new_black(tex_src.size, device, queue, None, wgpu::TextureFormat::Rgba32Float)?, device); 
         let tex_color_tmp = Texture::new_black(tex_src.size, device, queue, None, wgpu::TextureFormat::Rgba32Float)?; 
 
-        let tex_float = Texture::new_black(tex_src.size, device, queue, None, wgpu::TextureFormat::Rgba32Float)?; 
+        let tex_float = BindGroup::new(Texture::new_black(tex_src.size, device, queue, None, wgpu::TextureFormat::Rgba32Float)?, device); 
         let tex_float_tmp = Texture::new_black(tex_src.size, device, queue, None, wgpu::TextureFormat::Rgba32Float)?; 
 
         let global_uniform = UniformBindGroup::<GlobalShaderData>::new_with_data(device, GlobalShaderData{

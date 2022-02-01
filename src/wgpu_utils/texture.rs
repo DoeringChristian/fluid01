@@ -18,8 +18,10 @@ pub struct Texture{
     pub format: wgpu::TextureFormat,
     pub size: [u32; 2],
 
+    /*
     pub bind_group_layout: BindGroupLayoutWithDesc,
     pub bind_group: wgpu::BindGroup,
+    */
 }
 
 impl Texture{
@@ -104,20 +106,22 @@ impl Texture{
             }
         );
 
+        /*
         let bind_group_layout = Self::create_bind_group_layout(device, Some("Texture BindGroupLayout"));
 
         let bind_group = BindGroupBuilder::new(&bind_group_layout)
             .texture(&view)
             .sampler(&sampler)
             .create(device, Some("Texture BindGroup"));
+        */
 
         Ok(Self{
             texture,
             view,
             sampler,
             format,
-            bind_group,
-            bind_group_layout,
+            //bind_group,
+            //bind_group_layout,
             size,
         })
     }
@@ -194,12 +198,14 @@ impl Texture{
             }
         );
 
+        /*
         let bind_group_layout = Self::create_bind_group_layout(device, Some("Texture BindGroupLayout"));
 
         let bind_group = BindGroupBuilder::new(&bind_group_layout)
             .texture(&view)
             .sampler(&sampler)
             .create(device, Some("Texture Bind Group"));
+        */
 
         let size = [dims.0, dims.1];
 
@@ -208,8 +214,8 @@ impl Texture{
             view,
             sampler,
             format,
-            bind_group,
-            bind_group_layout,
+            //bind_group,
+            //bind_group_layout,
             size,
         })
     }
@@ -248,11 +254,13 @@ impl Texture{
     }
 }
 
+/*
 impl GetBindGroup for Texture{
     fn get_bind_group<'l>(&'l self) -> &'l wgpu::BindGroup {
         &self.bind_group
     }
 }
+*/
 
 impl RenderTarget for Texture{
     fn render_pass_clear<'a>(&'a self, encoder: &'a mut wgpu::CommandEncoder, label: Option<&'a str>) -> Result<wgpu::RenderPass<'a>> {
@@ -263,6 +271,7 @@ impl RenderTarget for Texture{
     }
 }
 
+/*
 impl CreateBindGroupLayout for Texture{
     fn create_bind_group_layout(device: &wgpu::Device, label: Option<&str>) -> BindGroupLayoutWithDesc{
         BindGroupLayoutBuilder::new()
@@ -280,9 +289,10 @@ impl CreateBindGroup for Texture{
             .create(device, label)
     }
 }
+*/
 
 impl BindGroupContent for Texture{
-    fn push_entries_to(&self, bind_group_layout_builder: &mut BindGroupLayoutBuilder) {
+    fn push_entries_to(bind_group_layout_builder: &mut BindGroupLayoutBuilder) {
         bind_group_layout_builder.push_entry_all_ref(binding::wgsl::texture_2d());
         bind_group_layout_builder.push_entry_all_ref(binding::wgsl::sampler());
     }
@@ -293,9 +303,3 @@ impl BindGroupContent for Texture{
     }
 }
 
-/// TODO: remove.
-impl GetBindGroupLayout for Texture{
-    fn get_bind_group_layout<'l>(&'l self) -> &'l BindGroupLayoutWithDesc {
-        &self.bind_group_layout
-    }
-}

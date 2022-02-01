@@ -191,7 +191,7 @@ impl<'l> BindGroupBuilder<'l>{
 
 
 pub trait BindGroupContent{
-    fn push_entries_to(&self, bind_group_layout_builder: &mut BindGroupLayoutBuilder);
+    fn push_entries_to(bind_group_layout_builder: &mut BindGroupLayoutBuilder);
     fn push_resources_to<'bgb>(&'bgb self, bind_group_builder: &mut BindGroupBuilder<'bgb>);
 }
 
@@ -205,9 +205,8 @@ macro_rules! bind_group_content_for_tuple{
     ($($name:ident)+) => {
         #[allow(non_snake_case)]
         impl<$($name: BindGroupContent),+> BindGroupContent for ($($name, )+){
-            fn push_entries_to(&self, bind_group_layout_builder: &mut BindGroupLayoutBuilder){
-                let ($($name, )+) = self;
-                ($($name.push_entries_to(bind_group_layout_builder),)+);
+            fn push_entries_to(bind_group_layout_builder: &mut BindGroupLayoutBuilder){
+                ($($name::push_entries_to(bind_group_layout_builder),)+);
             }
             fn push_resources_to<'bgb>(&'bgb self, bind_group_builder: &mut BindGroupBuilder<'bgb>){
                 let ($($name, )+) = self;
@@ -230,10 +229,11 @@ bind_group_content_for_tuple!{ A B C D E F G H I J }
 bind_group_content_for_tuple!{ A B C D E F G H I J K }
 bind_group_content_for_tuple!{ A B C D E F G H I J K L }
 
-impl<C: BindGroupContent> BindGroupContent for [C]{
-    fn push_entries_to(&self, bind_group_layout_builder: &mut BindGroupLayoutBuilder) {
-        for content in self{
-            content.push_entries_to(bind_group_layout_builder);
+
+impl<C: BindGroupContent, const N: usize> BindGroupContent for [C; N]{
+    fn push_entries_to(bind_group_layout_builder: &mut BindGroupLayoutBuilder) {
+        for _i in 0..N{
+            C::push_entries_to(bind_group_layout_builder);
         }
     }
 
@@ -243,6 +243,7 @@ impl<C: BindGroupContent> BindGroupContent for [C]{
         }
     }
 }
+
 
 pub struct BindGroup<C: BindGroupContent>{
     pub content: C,
@@ -254,21 +255,27 @@ impl<C: BindGroupContent> BindGroup<C>{
     pub fn new(content: C, device: &wgpu::Device) -> Self{
 
         let mut bind_group_layout_builder = BindGroupLayoutBuilder::new();
-        content.push_entries_to(&mut bind_group_layout_builder);
+        C::push_entries_to(&mut bind_group_layout_builder);
+        //content.push_entries_to(&mut bind_group_layout_builder);
         let bind_group_layout = bind_group_layout_builder.create(device, None);
 
         let mut bind_group_builder = BindGroupBuilder::new(&bind_group_layout);
         content.push_resources_to(&mut bind_group_builder);
         let bind_group = bind_group_builder.create(device, None);
 
-        //let bind_group_layout = content.create_bind_group_layout_vt(device, None);
-        //let bind_group = content.create_bind_group(device, &bind_group_layout, None);
-
         Self{
             content,
             bind_group,
             bind_group_layout,
         }
+    }
+}
+
+impl<C: BindGroupContent> CreateBindGroupLayout for BindGroup<C>{
+    fn create_bind_group_layout(device: &wgpu::Device, label: Option<&str>) -> BindGroupLayoutWithDesc {
+        let mut bind_group_layout_builder = BindGroupLayoutBuilder::new();
+        C::push_entries_to(&mut bind_group_layout_builder);
+        bind_group_layout_builder.create(device, label)
     }
 }
 

@@ -54,11 +54,12 @@ impl State for WinState{
             .push_target_replace(app.config.format)
             .build();
 
+        // TODO: put all textures together into one bindgroup.
         let display_rpl = PipelineLayoutBuilder::new()
             .push_named("global", global_uniform.get_bind_group_layout())
-            .push_named("tex_vpf", &Texture::create_bind_group_layout(&app.device, None))
-            .push_named("tex_color", &Texture::create_bind_group_layout(&app.device, None))
-            .push_named("tex_float", &Texture::create_bind_group_layout(&app.device, None))
+            .push_named("tex_vpf", &BindGroup::<Texture>::create_bind_group_layout(&app.device, None))
+            .push_named("tex_color", &BindGroup::<Texture>::create_bind_group_layout(&app.device, None))
+            .push_named("tex_float", &BindGroup::<Texture>::create_bind_group_layout(&app.device, None))
             .create(&app.device, None);
 
         let display_rp = RenderPipelineBuilder::new(display_vst, display_fst)
