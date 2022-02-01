@@ -18,10 +18,6 @@ pub struct Texture{
     pub format: wgpu::TextureFormat,
     pub size: [u32; 2],
 
-    /*
-    pub bind_group_layout: BindGroupLayoutWithDesc,
-    pub bind_group: wgpu::BindGroup,
-    */
 }
 
 impl Texture{
@@ -72,23 +68,6 @@ impl Texture{
                     | wgpu::TextureUsages::RENDER_ATTACHMENT
             }
         );
-        /*
-        queue.write_texture(
-            wgpu::ImageCopyTexture{
-                aspect: wgpu::TextureAspect::All,
-                texture: &texture,
-                mip_level: 0,
-                origin: wgpu::Origin3d::ZERO,
-            },
-            &data,
-            wgpu::ImageDataLayout{
-                offset: 0,
-                bytes_per_row: std::num::NonZeroU32::new(4 * size[0]),
-                rows_per_image: std::num::NonZeroU32::new(size[1]),
-            },
-            extent,
-        );
-        */
         let texture_view_desc = wgpu::TextureViewDescriptor{
             format: Some(format),
             ..Default::default()
@@ -106,22 +85,11 @@ impl Texture{
             }
         );
 
-        /*
-        let bind_group_layout = Self::create_bind_group_layout(device, Some("Texture BindGroupLayout"));
-
-        let bind_group = BindGroupBuilder::new(&bind_group_layout)
-            .texture(&view)
-            .sampler(&sampler)
-            .create(device, Some("Texture BindGroup"));
-        */
-
         Ok(Self{
             texture,
             view,
             sampler,
             format,
-            //bind_group,
-            //bind_group_layout,
             size,
         })
     }
@@ -197,16 +165,6 @@ impl Texture{
                 ..Default::default()
             }
         );
-
-        /*
-        let bind_group_layout = Self::create_bind_group_layout(device, Some("Texture BindGroupLayout"));
-
-        let bind_group = BindGroupBuilder::new(&bind_group_layout)
-            .texture(&view)
-            .sampler(&sampler)
-            .create(device, Some("Texture Bind Group"));
-        */
-
         let size = [dims.0, dims.1];
 
         Ok(Self{
@@ -214,8 +172,6 @@ impl Texture{
             view,
             sampler,
             format,
-            //bind_group,
-            //bind_group_layout,
             size,
         })
     }
@@ -254,14 +210,6 @@ impl Texture{
     }
 }
 
-/*
-impl GetBindGroup for Texture{
-    fn get_bind_group<'l>(&'l self) -> &'l wgpu::BindGroup {
-        &self.bind_group
-    }
-}
-*/
-
 impl RenderTarget for Texture{
     fn render_pass_clear<'a>(&'a self, encoder: &'a mut wgpu::CommandEncoder, label: Option<&'a str>) -> Result<wgpu::RenderPass<'a>> {
         self.view.render_pass_clear(encoder, label)
@@ -270,26 +218,6 @@ impl RenderTarget for Texture{
         self.view.render_pass_load(encoder, label)
     }
 }
-
-/*
-impl CreateBindGroupLayout for Texture{
-    fn create_bind_group_layout(device: &wgpu::Device, label: Option<&str>) -> BindGroupLayoutWithDesc{
-        BindGroupLayoutBuilder::new()
-            .push_entry_all(binding::wgsl::texture_2d())
-            .push_entry_all(binding::wgsl::sampler())
-            .create(device, label)
-    }
-}
-
-impl CreateBindGroup for Texture{
-    fn create_bind_group(&self, device: &wgpu::Device, layout: &BindGroupLayoutWithDesc, label: Option<&str>) -> wgpu::BindGroup {
-        BindGroupBuilder::new(layout)
-            .texture(&self.view)
-            .sampler(&self.sampler)
-            .create(device, label)
-    }
-}
-*/
 
 impl BindGroupContent for Texture{
     fn push_entries_to(bind_group_layout_builder: &mut BindGroupLayoutBuilder) {
@@ -303,3 +231,67 @@ impl BindGroupContent for Texture{
     }
 }
 
+pub type BindGroupTexture = BindGroup<Texture>;
+
+impl BindGroupTexture{
+    pub fn load_from_path(
+        device: &wgpu::Device, 
+        queue: &wgpu::Queue, 
+        path: &str,
+        label: Option<&str>,
+        format: wgpu::TextureFormat,
+    ) -> Result<Self>{
+        Ok(binding::BindGroup::new(Texture::load_from_path(
+                    device,
+                    queue,
+                    path,
+                    label,
+                    format
+        )?, device))
+    }
+    pub fn new_black(
+        size: [u32; 2],
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        label: Option<&str>,
+        format: wgpu::TextureFormat
+    ) -> Result<Self>{
+        Ok(binding::BindGroup::new(Texture::new_black(
+                    size,
+                    device,
+                    queue,
+                    label,
+                    format
+        )?, device))
+    }
+    pub fn from_image(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        img: &image::DynamicImage,
+        label: Option<&str>,
+        format: wgpu::TextureFormat
+    ) -> Result<Self>{
+        Ok(binding::BindGroup::new(Texture::from_image(
+                    device,
+                    queue,
+                    img,
+                    label,
+                    format
+        )?, device))
+    }
+    pub fn from_bytes(
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
+        bytes: &[u8],
+        label: Option<&str>,
+        format: wgpu::TextureFormat
+    ) -> Result<Self>{
+        Ok(binding::BindGroup::new(Texture::from_bytes(
+                    device,
+                    queue,
+                    bytes,
+                    label,
+                    format
+        )?, device))
+    }
+}
