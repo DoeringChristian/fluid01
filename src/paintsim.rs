@@ -132,8 +132,7 @@ impl PaintSim{
     }
 
     pub fn step(&mut self, queue: &wgpu::Queue, encoder: &mut wgpu::CommandEncoder){
-        self.global_uniform.get_content().time = self.sc as f32 / 60.;
-        self.global_uniform.update_int(queue);
+        self.global_uniform.borrow_ref(queue).time = self.sc as f32 /60.;
         // Simulation step:
         {
             let mut render_pass = RenderPassBuilder::new()

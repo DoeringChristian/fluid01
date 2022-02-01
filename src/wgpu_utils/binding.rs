@@ -184,9 +184,17 @@ impl<'l> BindGroupBuilder<'l>{
     }
 }
 
+
+
 pub trait BindGroupContent{
     fn push_entries_to(&self, bind_group_layout_builder: &mut BindGroupLayoutBuilder);
     fn push_resources_to<'bgb>(&'bgb self, bind_group_builder: &mut BindGroupBuilder<'bgb>);
+}
+
+// TODO: Macro for Structs that can be bind groups.
+macro_rules! bind_group_content{
+    ($struct_name:ident, $($field_name:ident),+) =>{
+    }
 }
 
 macro_rules! bind_group_content_for_tuple{
@@ -216,6 +224,20 @@ bind_group_content_for_tuple!{ A B C D E F G H I }
 bind_group_content_for_tuple!{ A B C D E F G H I J }
 bind_group_content_for_tuple!{ A B C D E F G H I J K }
 bind_group_content_for_tuple!{ A B C D E F G H I J K L }
+
+impl<C: BindGroupContent> BindGroupContent for [C]{
+    fn push_entries_to(&self, bind_group_layout_builder: &mut BindGroupLayoutBuilder) {
+        for content in self{
+            content.push_entries_to(bind_group_layout_builder);
+        }
+    }
+
+    fn push_resources_to<'bgb>(&'bgb self, bind_group_builder: &mut BindGroupBuilder<'bgb>) {
+        for content in self{
+            content.push_resources_to(bind_group_builder);
+        }
+    }
+}
 
 pub struct BindGroup<C: BindGroupContent>{
     pub content: C,

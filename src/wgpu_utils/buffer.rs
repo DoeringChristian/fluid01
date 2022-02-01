@@ -1,6 +1,6 @@
 use anyhow::*;
 use wgpu::util::DeviceExt;
-use std::marker::PhantomData;
+use std::{marker::PhantomData, ops::{Deref, DerefMut}, borrow::Borrow};
 use binding::CreateBindGroupLayout;
 
 use super::binding;
@@ -65,8 +65,37 @@ impl ToIdxBuffer for &[u32]{
     }
 }
 
+///
+/// A struct mutably referencing a Uniform to edit its content and update it when UniformRef is
+/// droped.
+///
+pub struct UniformRef<'ur, C: bytemuck::Pod>{
+    pub queue: &'ur wgpu::Queue,
+    pub uniform: &'ur mut Uniform<C>,
+}
+
+impl<C: bytemuck::Pod> Deref for UniformRef<'_, C>{
+    type Target = C;
+
+    fn deref(&self) -> &Self::Target {
+        &self.uniform.content
+    }
+}
+
+impl<C: bytemuck::Pod> DerefMut for UniformRef<'_, C>{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.uniform.content
+    }
+}
+
+impl<C: bytemuck::Pod> Drop for UniformRef<'_, C>{
+    fn drop(&mut self) {
+        self.uniform.update_int(self.queue);
+    }
+}
+
 // TODO: remove new without data and add content directly as type.
-pub struct Uniform<C>{
+pub struct Uniform<C: bytemuck::Pod>{
     buffer: wgpu::Buffer,
     content_type: PhantomData<C>,
 
@@ -103,8 +132,11 @@ impl<C: bytemuck::Pod> Uniform<C>{
         }
     }
 
-    pub fn get_content(&mut self) -> &mut C{
-        &mut self.content
+    pub fn borrow_ref<'ur>(&'ur mut self, queue: &'ur wgpu::Queue) -> UniformRef<'ur, C>{
+        UniformRef{
+            queue,
+            uniform: self,
+        }
     }
 
     pub fn new_with_data(device: &wgpu::Device, src: &C) -> Self{
