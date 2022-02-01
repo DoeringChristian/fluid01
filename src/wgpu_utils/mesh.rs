@@ -101,7 +101,7 @@ impl<V: Vert> Model<V>{
             view: view.into(),
             proj: proj.into()
         };
-        let uniform_buffer = UniformBindGroup::new_with_data(device, &model_transforms);
+        let uniform_buffer = UniformBindGroup::new_with_data(device, model_transforms);
 
         Ok(Self{
             mesh,
@@ -124,7 +124,7 @@ impl<V: Vert> Drawable for Model<V>{
 
 impl<V: Vert> UpdatedDrawable<ModelTransforms> for Model<V>{
     fn update(&mut self, queue: &wgpu::Queue, data: &ModelTransforms) {
-        self.uniform_buffer.update(queue, &data);
+        *self.uniform_buffer.borrow_ref(queue) = *data;
     }
 }
 

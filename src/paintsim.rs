@@ -50,7 +50,7 @@ impl PaintSim{
         let tex_float = Texture::new_black(tex_src.size, device, queue, None, wgpu::TextureFormat::Rgba32Float)?; 
         let tex_float_tmp = Texture::new_black(tex_src.size, device, queue, None, wgpu::TextureFormat::Rgba32Float)?; 
 
-        let global_uniform = UniformBindGroup::<GlobalShaderData>::new_with_data(device, &GlobalShaderData{
+        let global_uniform = UniformBindGroup::<GlobalShaderData>::new_with_data(device, GlobalShaderData{
             size: [tex_src.size[0] as f32, tex_src.size[1] as f32],
             time: 0.0,
             _pad0: 0.0,

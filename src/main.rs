@@ -34,7 +34,7 @@ impl State for WinState{
     fn new(app: &mut wgpu_utils::framework::AppState) -> Self {
         let mesh = Mesh::new(&app.device, &Vert2::QUAD_VERTS, &Vert2::QUAD_IDXS).unwrap();
 
-        let global_uniform = UniformBindGroup::<GlobalShaderData>::new_with_data(&app.device, &GlobalShaderData{
+        let global_uniform = UniformBindGroup::<GlobalShaderData>::new_with_data(&app.device, GlobalShaderData{
             size: [app.size.width as f32, app.size.height as f32],
             time: 0.0,
             _pad0: 0.0,

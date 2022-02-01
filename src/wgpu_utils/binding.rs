@@ -158,18 +158,22 @@ impl<'l> BindGroupBuilder<'l>{
         });
     }
 
+    #[inline]
     pub fn sampler(mut self, sampler: &'l wgpu::Sampler) -> Self{
         self.resource(wgpu::BindingResource::Sampler(sampler))
     }
 
+    #[inline]
     pub fn sampler_ref(&mut self, sampler: &'l wgpu::Sampler){
         self.resource_ref(wgpu::BindingResource::Sampler(sampler));
     }
 
+    #[inline]
     pub fn texture(mut self, texture_view: &'l wgpu::TextureView) -> Self{
         self.resource(wgpu::BindingResource::TextureView(texture_view))
     }
 
+    #[inline]
     pub fn texture_ref(&mut self, texture_view: &'l wgpu::TextureView){
         self.resource_ref(wgpu::BindingResource::TextureView(texture_view));
     }
@@ -199,6 +203,7 @@ macro_rules! bind_group_content{
 
 macro_rules! bind_group_content_for_tuple{
     ($($name:ident)+) => {
+        #[allow(non_snake_case)]
         impl<$($name: BindGroupContent),+> BindGroupContent for ($($name, )+){
             fn push_entries_to(&self, bind_group_layout_builder: &mut BindGroupLayoutBuilder){
                 let ($($name, )+) = self;

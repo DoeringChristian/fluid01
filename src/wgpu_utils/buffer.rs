@@ -70,8 +70,8 @@ impl ToIdxBuffer for &[u32]{
 /// droped.
 ///
 pub struct UniformRef<'ur, C: bytemuck::Pod>{
-    pub queue: &'ur wgpu::Queue,
-    pub uniform: &'ur mut Uniform<C>,
+    queue: &'ur wgpu::Queue,
+    uniform: &'ur mut Uniform<C>,
 }
 
 impl<C: bytemuck::Pod> Deref for UniformRef<'_, C>{
@@ -94,7 +94,6 @@ impl<C: bytemuck::Pod> Drop for UniformRef<'_, C>{
     }
 }
 
-// TODO: remove new without data and add content directly as type.
 pub struct Uniform<C: bytemuck::Pod>{
     buffer: wgpu::Buffer,
     content_type: PhantomData<C>,
@@ -139,7 +138,7 @@ impl<C: bytemuck::Pod> Uniform<C>{
         }
     }
 
-    pub fn new_with_data(device: &wgpu::Device, src: &C) -> Self{
+    pub fn new_with_data(device: &wgpu::Device, src: C) -> Self{
         let buffer = device.create_buffer(&wgpu::BufferDescriptor{
             label: Some(&format!("UniformBuffer: {}", Self::name())),
             size: std::mem::size_of::<C>() as u64,
@@ -148,7 +147,7 @@ impl<C: bytemuck::Pod> Uniform<C>{
         });
 
         let mapped_memory = buffer.slice(..);
-        mapped_memory.get_mapped_range_mut().clone_from_slice(bytemuck::bytes_of(src));
+        mapped_memory.get_mapped_range_mut().clone_from_slice(bytemuck::bytes_of(&src));
 
         buffer.unmap();
 
@@ -163,10 +162,11 @@ impl<C: bytemuck::Pod> Uniform<C>{
         Self{
             buffer,
             content_type: PhantomData,
-            content: *src,
+            content: src,
         }
     }
 
+    /*
     pub fn update(&mut self, queue: &wgpu::Queue, src: &C){
         let new_content = bytemuck::bytes_of(src);
         if bytemuck::bytes_of(&self.content) == new_content{
@@ -176,6 +176,7 @@ impl<C: bytemuck::Pod> Uniform<C>{
         queue.write_buffer(&self.buffer, 0, new_content);
         self.content = *src;
     }
+    */
 
     pub fn update_int(&mut self, queue: &wgpu::Queue){
         queue.write_buffer(&self.buffer, 0, bytemuck::bytes_of(&self.content));
@@ -197,6 +198,7 @@ impl<C: bytemuck::Pod> binding::BindGroupContent for Uniform<C>{
     }
 }
 
+/*
 impl<C: bytemuck::Pod> binding::CreateBindGroupLayout for Uniform<C>{
     fn create_bind_group_layout(device: &wgpu::Device, label: Option<&str>) -> binding::BindGroupLayoutWithDesc {
         binding::BindGroupLayoutBuilder::new()
@@ -213,11 +215,16 @@ impl<C: bytemuck::Pod> binding::CreateBindGroup for Uniform<C>{
             .create(device, label)
     }
 }
+*/
 
 pub type UniformBindGroup<C> = binding::BindGroup<Uniform<C>>;
 
 impl<C: bytemuck::Pod> UniformBindGroup<C>{
-    pub fn new_with_data(device: &wgpu::Device, src: &C) -> Self{
+    pub fn new_zeroed(device: &wgpu::Device) -> Self{
+        binding::BindGroup::new(Uniform::new_with_data(device, C::zeroed()), device)
+    }
+
+    pub fn new_with_data(device: &wgpu::Device, src: C) -> Self{
         binding::BindGroup::new(Uniform::new_with_data(device, src), device)
     }
 }
