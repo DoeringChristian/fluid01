@@ -47,9 +47,9 @@ pub struct Mesh<V: Vert>{
 
 impl<V: Vert> Mesh<V>{
     pub fn new(device: &wgpu::Device, verts: &[V], idxs: &[u32]) -> Result<Self>{
-        let vertex_buffer = Buffer::new_vert_with_data(device, None, verts);
+        let vertex_buffer = Buffer::new_vert(device, None, verts);
 
-        let idx_buffer = Buffer::new_index_with_data(device, None, idxs);
+        let idx_buffer = Buffer::new_index(device, None, idxs);
 
         let num_indices = idxs.len() as u32;
 

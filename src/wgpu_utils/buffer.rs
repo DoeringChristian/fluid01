@@ -36,32 +36,27 @@ impl<C: bytemuck::Pod> Drop for UniformRef<'_, C>{
 
 pub struct Buffer<C: bytemuck::Pod>{
     buffer: wgpu::Buffer,
-    size: usize,
+    len: usize,
     _pd: PhantomData<C>,
 }
 
 impl<C: bytemuck::Pod> Buffer<C>{
-
-    pub fn new(device: &wgpu::Device, usage: wgpu::BufferUsages, label: wgpu::Label, num: usize) -> Self{
-        let size = std::mem::size_of::<C>() * num;
-        
+    pub fn new_empty(device: &wgpu::Device, usage: wgpu::BufferUsages, label: wgpu::Label, len: usize) -> Self{
         let buffer = device.create_buffer(&wgpu::BufferDescriptor{
             label,
-            size: size as u64,
+            size: (len * std::mem::size_of::<C>()) as u64,
             usage,
             mapped_at_creation: false,
         });
 
         Self{
             buffer,
-            size,
+            len,
             _pd: PhantomData,
         }
     }
 
-    pub fn new_with_data(device: &wgpu::Device, usage: wgpu::BufferUsages, label: wgpu::Label, data: &[C]) -> Self{
-        let size = std::mem::size_of::<C>() * data.len();
-
+    pub fn new(device: &wgpu::Device, usage: wgpu::BufferUsages, label: wgpu::Label, data: &[C]) -> Self{
         let buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor{
             label,
             contents: bytemuck::cast_slice(data),
@@ -70,21 +65,53 @@ impl<C: bytemuck::Pod> Buffer<C>{
 
         Self{
             buffer,
-            size,
+            len: data.len(),
             _pd: PhantomData,
         }
     }
 
-    pub fn new_vert_with_data(device: &wgpu::Device, label: wgpu::Label, data: &[C]) -> Self{
-        Self::new_with_data(device, wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC, label, data)
+    pub fn new_vert(device: &wgpu::Device, label: wgpu::Label, data: &[C]) -> Self{
+        Self::new(device, wgpu::BufferUsages::VERTEX, label, data)
     }
     
-    pub fn new_index_with_data(device: &wgpu::Device, label: wgpu::Label, data: &[C]) -> Self{
-        Self::new_with_data(device, wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST | wgpu::BufferUsages::COPY_SRC, label, data)
+    pub fn new_index(device: &wgpu::Device, label: wgpu::Label, data: &[C]) -> Self{
+        Self::new(device, wgpu::BufferUsages::INDEX, label, data)
+    }
+
+    pub fn len(&self) -> usize{
+        self.len / std::mem::size_of::<C>()
+    }
+}
+
+pub struct DynamicBuffer<C: bytemuck::Pod>(Buffer<C>);
+
+impl<C: bytemuck::Pod> DynamicBuffer<C>{
+    pub fn new_empty(device: &wgpu::Device, usage: wgpu::BufferUsages, label: wgpu::Label, len: usize) -> Self{
+        Self(
+            Buffer::new_empty(device, usage | wgpu::BufferUsages::COPY_DST, label, len)
+        )
+    }
+
+    pub fn new(device: &wgpu::Device, usage: wgpu::BufferUsages, label: wgpu::Label, data: &[C]) -> Self{
+        Self(
+            Buffer::new(device, usage | wgpu::BufferUsages::COPY_DST, label, data)
+        )
+    }
+
+    pub fn new_vert(device: &wgpu::Device, label: wgpu::Label, data: &[C]) -> Self{
+        Self(
+            Buffer::new(device, wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, label, data)
+        )
+    }
+
+    pub fn new_index(device: &wgpu::Device, label: wgpu::Label, data: &[C]) -> Self{
+        Self(
+            Buffer::new(device, wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST, label, data)
+        )
     }
 
     pub fn write_buffer(&mut self, queue: &wgpu::Queue, offset: usize, data: &[C]){
-        queue.write_buffer(&self.buffer, (offset * std::mem::size_of::<C>()) as u64, bytemuck::cast_slice(data));
+        queue.write_buffer(&self.0.buffer, (offset * std::mem::size_of::<C>()) as u64, bytemuck::cast_slice(data));
     }
 
     // TODO: write resize implementation.
@@ -92,9 +119,19 @@ impl<C: bytemuck::Pod> Buffer<C>{
         let size = len * std::mem::size_of::<C>();
         unimplemented!()
     }
+}
 
-    pub fn len(&self) -> usize{
-        self.size / std::mem::size_of::<C>()
+impl<C: bytemuck::Pod> Deref for DynamicBuffer<C>{
+    type Target = Buffer<C>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<C: bytemuck::Pod> DerefMut for DynamicBuffer<C>{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
@@ -130,7 +167,7 @@ impl<C: bytemuck::Pod> DerefMut for Buffer<C>{
 
 
 pub struct Uniform<C: bytemuck::Pod>{
-    buffer: wgpu::Buffer,
+    buffer: DynamicBuffer<C>,
     _pd: PhantomData<C>,
 
     content: C,
@@ -143,13 +180,13 @@ impl<C: bytemuck::Pod> Uniform<C>{
         &type_name[(pos + 1)..]
     }
     
-    pub fn new(device: &wgpu::Device) -> Self{
-        let buffer = device.create_buffer(&wgpu::BufferDescriptor{
-            label: Some(&format!("UniformBuffer: {}", Self::name())),
-            size: std::mem::size_of::<C>() as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: false,
-        });
+    pub fn new_empty(device: &wgpu::Device) -> Self{
+        let buffer = DynamicBuffer::new_empty(
+            device, 
+            wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, 
+            Some(&format!("UniformBuffer: {}", Self::name())),
+            1,
+        );
 
         Uniform{
             buffer,
@@ -165,18 +202,13 @@ impl<C: bytemuck::Pod> Uniform<C>{
         }
     }
 
-    pub fn new_with_data(device: &wgpu::Device, src: C) -> Self{
-        let buffer = device.create_buffer(&wgpu::BufferDescriptor{
-            label: Some(&format!("UniformBuffer: {}", Self::name())),
-            size: std::mem::size_of::<C>() as u64,
-            usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
-            mapped_at_creation: true,
-        });
-
-        let mapped_memory = buffer.slice(..);
-        mapped_memory.get_mapped_range_mut().clone_from_slice(bytemuck::bytes_of(&src));
-
-        buffer.unmap();
+    pub fn new(device: &wgpu::Device, src: C) -> Self{
+        let buffer = DynamicBuffer::new(
+            device,
+            wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            Some(&format!("UniformBuffer: {}", Self::name())),
+            &[src]
+        );
 
         Self{
             buffer,
@@ -189,9 +221,11 @@ impl<C: bytemuck::Pod> Uniform<C>{
         queue.write_buffer(&self.buffer, 0, bytemuck::bytes_of(&self.content));
     }
 
+    /*
     pub fn binding_resource(&self) -> wgpu::BindingResource{
         self.buffer.as_entire_binding()
     }
+    */
 
 }
 
@@ -209,10 +243,10 @@ pub type UniformBindGroup<C> = binding::BindGroup<Uniform<C>>;
 
 impl<C: bytemuck::Pod> UniformBindGroup<C>{
     pub fn new_zeroed(device: &wgpu::Device) -> Self{
-        binding::BindGroup::new(Uniform::new_with_data(device, C::zeroed()), device)
+        binding::BindGroup::new(Uniform::new(device, C::zeroed()), device)
     }
 
     pub fn new_with_data(device: &wgpu::Device, src: C) -> Self{
-        binding::BindGroup::new(Uniform::new_with_data(device, src), device)
+        binding::BindGroup::new(Uniform::new(device, src), device)
     }
 }
