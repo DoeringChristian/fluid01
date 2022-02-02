@@ -144,15 +144,16 @@ void main(){
     // External Sources:
     // pen source: 
     vec2 m = pen(global_data.time);
-    vo.xyw += dt * exp(-(dot(r-m, r-m))/50.) * vec3(m - pen(global_data.time-0.1), 2.);
-    //vo.xyw += dt * exp(-(dot(r-m, r-m))/50.) * vec3(m - pen(global_data.time-0.1), 1.);
+    //vo.xyw += dt * exp(-(dot(r-m, r-m))/50.) * vec3(m - pen(global_data.time-0.1), 2.);
+    vo.z += dt * exp(-(dot(r-m, r-m))/50.);
+    vo.xyw += dt * exp(-(dot(r-m, r-m))/50.) * vec3(m - pen(global_data.time-0.1), 1.);
     //vo.z += exp(-(dot(r-m, r-m))/50.);
 
     vo.xyzw = clamp(vo.xyzw, vec4(-VMAXX, -VMAXY, 0.5, 0.), vec4(VMAXX, VMAXY, 3., 5.));
 
     // boundary condiation to dry areas of paper.
     // Von Neumann Boundary Condition.
-    if(length(vo.xy) < 0.1){
+    if(length(vo.z) < 0.6){
         vo.xy = vec2(0., 0.);
     }
     
