@@ -82,7 +82,9 @@ impl State for WinState{
             label: Some("Render Encoder"),
         });
 
-        self.paintsim.step(&mut app.queue, &mut encoder);
+        for i in 0..6{
+            self.paintsim.step(&mut app.queue, &mut encoder);
+        }
 
         // render result to view.
         {

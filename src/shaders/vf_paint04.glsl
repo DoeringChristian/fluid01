@@ -53,6 +53,7 @@ layout(set = 3, binding = 1) uniform sampler s_tex_float;
 #define VMAXX 5.0
 #define VMAXY 5.0
 #define VMAX sqrt(VMAXX * VMAXX + VMAXY * VMAXY)
+#define HMIN 0.5
 
 vec4 v(vec2 pos){
     return texture(sampler2D(t_tex_vpf, s_tex_vpf), pos/global_data.size);
@@ -71,8 +72,9 @@ vec3 to_rgb(vec3 ymc){
 }
 
 vec2 pen(float t){
-    //return vec2(200, 200);
-    return vec2(cos(t/4.) * 200, sin(t/4.) * 200) * cos(t/10.) + vec2(300, 300);
+    //return vec2(300, 300);
+    //return vec2(cos(t/4.) * 200, sin(t/4.) * 200) * cos(t/10.) + vec2(300, 300);
+    return vec2(cos(t/4.) * 50, sin(t/4.) * 50) * cos(t/10.) + vec2(300, 300);
 }
 
 
@@ -82,7 +84,8 @@ void main(){
     // w: fluidity
 
     float dt = 0.15;
-    float K = 0.2;
+    //float K = 0.2;
+    float K = 0.3;
     float nu = 0.5;
     float kappa = 0.5;
 
@@ -145,15 +148,17 @@ void main(){
     // pen source: 
     vec2 m = pen(global_data.time);
     //vo.xyw += dt * exp(-(dot(r-m, r-m))/50.) * vec3(m - pen(global_data.time-0.1), 2.);
-    vo.z += dt * exp(-(dot(r-m, r-m))/50.);
-    vo.xyw += dt * exp(-(dot(r-m, r-m))/50.) * vec3(m - pen(global_data.time-0.1), 1.);
+    if(global_data.time < 10.){
+        vo.z += exp(-(dot(r-m, r-m))/50.);
+    }
+    //vo.xyw += dt * exp(-(dot(r-m, r-m))/50.) * vec3(m - pen(global_data.time-0.1), 1.);
     //vo.z += exp(-(dot(r-m, r-m))/50.);
 
-    vo.xyzw = clamp(vo.xyzw, vec4(-VMAXX, -VMAXY, 0.5, 0.), vec4(VMAXX, VMAXY, 3., 5.));
+    vo.xyzw = clamp(vo.xyzw, vec4(-VMAXX, -VMAXY, HMIN, 0.), vec4(VMAXX, VMAXY, 3., 5.));
 
     // boundary condiation to dry areas of paper.
     // Von Neumann Boundary Condition.
-    if(length(vo.z) < 0.6){
+    if(length(vo.z) < HMIN + 0.3){
         vo.xy = vec2(0., 0.);
     }
     
@@ -165,15 +170,51 @@ void main(){
     float fallout = (1. - vo.w / VMAX);
     vec4 brush_color = vec4(1.0, 0.0, 0.0, 0.1);
 
+
+    vec4 fl = tex(r, t_tex_float, s_tex_float);
+    vec4 float_px = tex(r + vec2(1., 0.), t_tex_float, s_tex_float); 
+    vec4 float_nx = tex(r + vec2(-1., 0.), t_tex_float, s_tex_float);
+    vec4 float_py = tex(r + vec2(0., 1.), t_tex_float, s_tex_float); 
+    vec4 float_ny = tex(r + vec2(0., -1.), t_tex_float, s_tex_float);
+
+    vec4 float_dx = (float_px - float_nx)/2.0;
+    vec4 float_dy = (float_py - float_ny)/2.0;
+
+    vec4 float_lapl = (float_px + float_nx + float_py + float_ny - 4.*fl);
+
+    float float_div = float_dx.x + float_dy.y;
+
+    // Adjust the diffusion coefficient of the pigment according to the height of the fluid.
+    //float float_nu = (vo.z - HMIN) / 2.5 * 2.;
+    float float_nu = 0.0;
+    // Diffusion coefficient should never be over 1.
+    if(vo.z > 0.5001){
+        float_nu = 0.1;
+    }
+    //float_nu = 1.0;
+
+    // advection: for some reason no pigment is carried away to the edges of the liquid.
+    // Wtf... why do I need this multiplicand (3.)? Implies that pigment moves faster than liquid.
+    vec2 vo_s = vo.xy * 3.;
+    o_float = tex(r - dt * vo_s, t_tex_float, s_tex_float);
+    //o_float = tex(r - dt * vo.xy, t_tex_float, s_tex_float);
+    // diffusion
+    o_float += dt * float_nu * float_lapl;
+    //o_float += brush_color * exp(-(dot(r-m, r-m))/50.);
+    if(length(r - vec2(300, 300)) < 10 && global_data.time < 5){
+        o_float = vec4(10, 0, 0, 1);
+    }
+
     // TODO: Alpha of float as ammount of particulate.
     // Add picked up particulate to floating particulate and remove fallout.
 
-    o_float = tex(r - dt * vo.xy, t_tex_float, s_tex_float) * (1 - fallout) + tex(r, t_tex_color, s_tex_color) * pickup + brush_color * exp(-(dot(r-m, r-m)/50.));
+    //o_float = tex(r - dt * vo.xy, t_tex_float, s_tex_float) * (1 - fallout) + tex(r, t_tex_color, s_tex_color) * pickup + brush_color * exp(-(dot(r-m, r-m)/50.));
 
     // TODO: Dry particulate over time so it is harder to pick up. (use vo.w as water level/fluidity)
     // Add Fallen out particulate to dried color and remove picked up particulate.
     //o_color.rgb = tex(r, t_tex_color, s_tex_color).rgb * (1. - pickup) + tex(r - dt * vo.xy, t_tex_float, s_tex_float).rgb * fallout;
-    o_color.rgb = tex(r, t_tex_color, s_tex_color).rgb * (1 - pickup) + tex(r - dt * vo.xy, t_tex_float, s_tex_float).rgb * fallout;
+    //o_color.rgb = tex(r, t_tex_color, s_tex_color).rgb * (1 - pickup) + tex(r - dt * vo.xy, t_tex_float, s_tex_float).rgb * fallout;
+    o_color.rg = vo_s;
 
     vo.w *= 0.999;
 }

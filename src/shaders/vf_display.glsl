@@ -45,7 +45,7 @@ void main(){
         o_color = tex_vpf;
     }
     else if(f_uv.x > 0.5 && f_uv.y < 0.5){
-        o_color = tex_cf;
+        o_color = tex_color;
     }
     else if(f_uv.x < 0.5 && f_uv.y > 0.5){
         o_color = tex_float;
