@@ -183,7 +183,7 @@ impl<C: bytemuck::Pod> Uniform<C>{
     pub fn new_empty(device: &wgpu::Device) -> Self{
         let buffer = DynamicBuffer::new_empty(
             device, 
-            wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST, 
+            wgpu::BufferUsages::UNIFORM, 
             Some(&format!("UniformBuffer: {}", Self::name())),
             1,
         );
@@ -205,7 +205,7 @@ impl<C: bytemuck::Pod> Uniform<C>{
     pub fn new(device: &wgpu::Device, src: C) -> Self{
         let buffer = DynamicBuffer::new(
             device,
-            wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            wgpu::BufferUsages::UNIFORM,
             Some(&format!("UniformBuffer: {}", Self::name())),
             &[src]
         );
