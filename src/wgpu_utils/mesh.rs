@@ -39,25 +39,24 @@ pub trait DataDrawable<'pd, D>{
 }
 
 pub struct Mesh<V: Vert>{
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
+    vert_buffer: Buffer<V>,
+    idx_buffer: Buffer<u32>,
     num_indices: u32,
     _phantom_data: PhantomData<V>,
 }
 
 impl<V: Vert> Mesh<V>{
     pub fn new(device: &wgpu::Device, verts: &[V], idxs: &[u32]) -> Result<Self>{
+        let vertex_buffer = Buffer::new_vert_with_data(device, None, verts);
 
-        let vertex_buffer = verts.create_vert_buffer(device)?;
-
-        let index_buffer = idxs.create_idx_buffer(device)?;
+        let idx_buffer = Buffer::new_index_with_data(device, None, idxs);
 
         let num_indices = idxs.len() as u32;
 
         Ok(Self{
-            vertex_buffer,
-            index_buffer,
             num_indices,
+            idx_buffer,
+            vert_buffer: vertex_buffer,
             _phantom_data: PhantomData,
         })
     }
@@ -66,8 +65,8 @@ impl<V: Vert> Mesh<V>{
 impl<V: Vert> Drawable for Mesh<V>{
     fn draw<'rp>(&'rp self, render_pass: &'_ mut pipeline::RenderPassPipeline<'rp, '_>) {
 
-        render_pass.set_vertex_buffer("model", self.vertex_buffer.slice(..));
-        render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        render_pass.set_vertex_buffer("model", self.vert_buffer.slice(..));
+        render_pass.set_index_buffer(self.idx_buffer.slice(..), wgpu::IndexFormat::Uint32);
         render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
     }
     fn vert_buffer_layout(&self) -> wgpu::VertexBufferLayout<'static>{

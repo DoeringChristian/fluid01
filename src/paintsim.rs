@@ -56,8 +56,8 @@ impl PaintSim{
             _pad0: 0.0,
         });
 
-        let vert_shader = shader_with_shaderc(device, include_str!("shaders/vf_paint03.glsl"), shaderc::ShaderKind::Vertex, "main", None)?;
-        let frag_shader = shader_with_shaderc(device, include_str!("shaders/vf_paint03.glsl"), shaderc::ShaderKind::Fragment, "main", None)?;
+        let vert_shader = shader_with_shaderc(device, include_str!("shaders/vf_paint04.glsl"), shaderc::ShaderKind::Vertex, "main", None)?;
+        let frag_shader = shader_with_shaderc(device, include_str!("shaders/vf_paint04.glsl"), shaderc::ShaderKind::Fragment, "main", None)?;
 
         let vert_state = VertexStateBuilder::new(&vert_shader)
             .push_named("model", mesh.vert_buffer_layout())

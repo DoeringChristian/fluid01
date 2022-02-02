@@ -43,24 +43,3 @@ impl Vert for Vert2{
         }
     }
 }
-
-impl<V: Vert> ToBuffer for &[V]{
-    fn create_buffer(&self, device: &wgpu::Device, usage: wgpu::BufferUsages) -> anyhow::Result<wgpu::Buffer> {
-        let buffer = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor{
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(*self),
-                usage: wgpu::BufferUsages::VERTEX,
-            }
-        );
-
-        Ok(buffer)
-    }
-}
-
-impl<V: Vert> ToVertBuffer for &[V]{
-    fn create_vert_buffer(&self, device: &wgpu::Device) -> anyhow::Result<wgpu::Buffer>{
-        self.create_buffer(device, wgpu::BufferUsages::VERTEX)
-    }
-}
-
