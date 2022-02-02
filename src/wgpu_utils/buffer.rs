@@ -10,27 +10,53 @@ use super::binding;
 /// droped.
 ///
 pub struct UniformRef<'ur, C: bytemuck::Pod>{
-    queue: &'ur wgpu::Queue,
+    queue: &'ur mut wgpu::Queue,
     uniform: &'ur mut Uniform<C>,
 }
+
 
 impl<C: bytemuck::Pod> Deref for UniformRef<'_, C>{
     type Target = C;
 
     fn deref(&self) -> &Self::Target {
-        &self.uniform.content
+        &self.uniform.uniform_vec.content[0]
     }
 }
 
 impl<C: bytemuck::Pod> DerefMut for UniformRef<'_, C>{
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.uniform.content
+        &mut self.uniform.uniform_vec.content[0]
     }
 }
 
 impl<C: bytemuck::Pod> Drop for UniformRef<'_, C>{
     fn drop(&mut self) {
-        self.uniform.update_int(self.queue);
+        self.uniform.uniform_vec.update_int(self.queue);
+    }
+}
+
+pub struct UniformVecRef<'ur, C: bytemuck::Pod>{
+    queue: &'ur mut wgpu::Queue,
+    uniform_vec: &'ur mut UniformVec<C>,
+}
+
+impl<C: bytemuck::Pod> Deref for UniformVecRef<'_, C>{
+    type Target = [C];
+
+    fn deref(&self) -> &Self::Target{
+        &self.uniform_vec.content
+    }
+}
+
+impl<C: bytemuck::Pod> DerefMut for UniformVecRef<'_, C>{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.uniform_vec.content
+    }
+}
+
+impl<C: bytemuck::Pod> Drop for UniformVecRef<'_, C>{
+    fn drop(&mut self){
+        self.uniform_vec.update_int(self.queue);
     }
 }
 
@@ -99,15 +125,15 @@ impl<C: bytemuck::Pod> DynamicBuffer<C>{
     }
 
     pub fn new_vert(device: &wgpu::Device, label: wgpu::Label, data: &[C]) -> Self{
-        Self(
-            Buffer::new(device, wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST, label, data)
-        )
+        Self::new(device, wgpu::BufferUsages::VERTEX, label, data)
     }
 
     pub fn new_index(device: &wgpu::Device, label: wgpu::Label, data: &[C]) -> Self{
-        Self(
-            Buffer::new(device, wgpu::BufferUsages::INDEX | wgpu::BufferUsages::COPY_DST, label, data)
-        )
+        Self::new(device, wgpu::BufferUsages::INDEX, label, data)
+    }
+
+    pub fn new_uniform(device: &wgpu::Device, label: wgpu::Label, data: &[C]) -> Self{
+        Self::new(device, wgpu::BufferUsages::UNIFORM, label, data)
     }
 
     pub fn write_buffer(&mut self, queue: &wgpu::Queue, offset: usize, data: &[C]){
@@ -163,70 +189,61 @@ impl<C: bytemuck::Pod> DerefMut for Buffer<C>{
     }
 }
 
-
-
-
-pub struct Uniform<C: bytemuck::Pod>{
+pub struct UniformVec<C: bytemuck::Pod>{
     buffer: DynamicBuffer<C>,
-    _pd: PhantomData<C>,
 
-    content: C,
+    content: Vec<C>,
 }
 
-impl<C: bytemuck::Pod> Uniform<C>{
+impl<C: bytemuck::Pod> UniformVec<C>{
     fn name() -> &'static str{
         let type_name = std::any::type_name::<C>();
         let pos = type_name.rfind(':').unwrap();
         &type_name[(pos + 1)..]
     }
-    
-    pub fn new_empty(device: &wgpu::Device) -> Self{
-        let buffer = DynamicBuffer::new_empty(
+
+    pub fn new(device: &wgpu::Device, src: &[C]) -> Self{
+        let buffer = DynamicBuffer::new_uniform(
             device, 
-            wgpu::BufferUsages::UNIFORM, 
             Some(&format!("UniformBuffer: {}", Self::name())),
-            1,
+            src,
         );
 
-        Uniform{
+        Self{
             buffer,
-            _pd: PhantomData,
-            content: C::zeroed(),
+            content: Vec::from(src),
         }
     }
 
-    pub fn borrow_ref<'ur>(&'ur mut self, queue: &'ur wgpu::Queue) -> UniformRef<'ur, C>{
+    pub fn update_int(&mut self, queue: &wgpu::Queue){
+        queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&self.content));
+    }
+
+    pub fn borrow_ref<'ur>(&'ur mut self, queue: &'ur mut wgpu::Queue) -> UniformVecRef<'ur, C>{
+        UniformVecRef{
+            queue,
+            uniform_vec: self,
+        }
+    }
+}
+
+pub struct Uniform<C: bytemuck::Pod>{
+    uniform_vec: UniformVec<C>,
+}
+
+impl<C: bytemuck::Pod> Uniform<C>{
+    pub fn new(device: &wgpu::Device, src: C) -> Self{
+        Self{
+            uniform_vec: UniformVec::new(device, &[src])
+        }
+    }
+
+    pub fn borrow_ref<'ur>(&'ur mut self, queue: &'ur mut wgpu::Queue) -> UniformRef<'ur, C>{
         UniformRef{
             queue,
             uniform: self,
         }
     }
-
-    pub fn new(device: &wgpu::Device, src: C) -> Self{
-        let buffer = DynamicBuffer::new(
-            device,
-            wgpu::BufferUsages::UNIFORM,
-            Some(&format!("UniformBuffer: {}", Self::name())),
-            &[src]
-        );
-
-        Self{
-            buffer,
-            _pd: PhantomData,
-            content: src,
-        }
-    }
-
-    pub fn update_int(&mut self, queue: &wgpu::Queue){
-        queue.write_buffer(&self.buffer, 0, bytemuck::bytes_of(&self.content));
-    }
-
-    /*
-    pub fn binding_resource(&self) -> wgpu::BindingResource{
-        self.buffer.as_entire_binding()
-    }
-    */
-
 }
 
 impl<C: bytemuck::Pod> binding::BindGroupContent for Uniform<C>{
@@ -235,9 +252,25 @@ impl<C: bytemuck::Pod> binding::BindGroupContent for Uniform<C>{
     }
 
     fn push_resources_to<'bgb>(&'bgb self, bind_group_builder: &mut binding::BindGroupBuilder<'bgb>) {
-        bind_group_builder.resource_ref(self.buffer.as_entire_binding());
+        bind_group_builder.resource_ref(self.uniform_vec.buffer.as_entire_binding());
     }
 }
+
+/*
+impl<C: bytemuck::Pod> Deref for Uniform<C>{
+    type Target = UniformVec<C>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.uniform_vec
+    }
+}
+
+impl<C: bytemuck::Pod> DerefMut for Uniform<C>{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.uniform_vec
+    }
+}
+*/
 
 pub type UniformBindGroup<C> = binding::BindGroup<Uniform<C>>;
 

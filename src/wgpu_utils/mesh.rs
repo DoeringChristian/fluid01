@@ -22,8 +22,8 @@ pub trait Drawable{
 }
 
 pub trait UpdatedDrawable<D>: Drawable{
-    fn update(&mut self, queue: &wgpu::Queue, data: &D);
-    fn update_draw<'rp>(&'rp mut self, queue: &wgpu::Queue, render_pass: &'_ mut pipeline::RenderPassPipeline<'rp, '_>, data: &D){
+    fn update(&mut self, queue: &mut wgpu::Queue, data: &D);
+    fn update_draw<'rp>(&'rp mut self, queue: &mut wgpu::Queue, render_pass: &'_ mut pipeline::RenderPassPipeline<'rp, '_>, data: &D){
         self.update(queue, data);
         self.draw(render_pass)
     }
@@ -122,7 +122,7 @@ impl<V: Vert> Drawable for Model<V>{
 }
 
 impl<V: Vert> UpdatedDrawable<ModelTransforms> for Model<V>{
-    fn update(&mut self, queue: &wgpu::Queue, data: &ModelTransforms) {
+    fn update(&mut self, queue: &mut wgpu::Queue, data: &ModelTransforms) {
         *self.uniform_buffer.borrow_ref(queue) = *data;
     }
 }

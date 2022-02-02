@@ -82,7 +82,7 @@ impl State for WinState{
             label: Some("Render Encoder"),
         });
 
-        self.paintsim.step(&app.queue, &mut encoder);
+        self.paintsim.step(&mut app.queue, &mut encoder);
 
         // render result to view.
         {
@@ -101,7 +101,7 @@ impl State for WinState{
 
         self.fc += 1;
         println!("time: {}", self.fc as f32/60.0);
-        self.global_uniform.content.borrow_ref(&app.queue).time = self.fc as f32 / 60.;
+        self.global_uniform.content.borrow_ref(&mut app.queue).time = self.fc as f32 / 60.;
         //self.global_uniform.content.get_content().time = self.fc as f32 / 60.0;
         //self.global_uniform.content.update_int(&app.queue);
 
@@ -124,7 +124,7 @@ impl State for WinState{
     }
 
     fn resize(&mut self, app: &mut wgpu_utils::framework::AppState, new_size: winit::dpi::PhysicalSize<u32>) {
-        self.global_uniform.borrow_ref(&app.queue).size = [new_size.width as f32, new_size.height as f32];
+        self.global_uniform.borrow_ref(&mut app.queue).size = [new_size.width as f32, new_size.height as f32];
     }
 }
 
