@@ -25,6 +25,8 @@ pub struct PaintSim{
     pub tex_src: BindGroup<Texture>,
 
     pipeline: pipeline::RenderPipeline,
+    pipeline_blurwh: pipeline::RenderPipeline,
+    pipeline_blurwv: pipeline::RenderPipeline,
 
     pipeline_src_to_color: pipeline::RenderPipeline,
 
@@ -56,6 +58,7 @@ impl PaintSim{
             _pad0: 0.0,
         });
 
+        // Simulation Pipeline:
         let vert_shader = shader_with_shaderc(device, include_str!("shaders/vf_paint04.glsl"), shaderc::ShaderKind::Vertex, "main", None)?;
         let frag_shader = shader_with_shaderc(device, include_str!("shaders/vf_paint04.glsl"), shaderc::ShaderKind::Fragment, "main", None)?;
 
@@ -80,6 +83,50 @@ impl PaintSim{
             .set_layout(&pipeline_layout)
             .build(device);
 
+        // BlurWV Pipeline:
+        let vert_shader = shader_with_shaderc(device, include_str!("shaders/vf_blurwv.glsl"), shaderc::ShaderKind::Vertex, "main", None)?;
+        let frag_shader = shader_with_shaderc(device, include_str!("shaders/vf_blurwv.glsl"), shaderc::ShaderKind::Fragment, "main", None)?;
+
+        let vert_state = VertexStateBuilder::new(&vert_shader)
+            .push_named("model", mesh.vert_buffer_layout())
+            .build();
+
+        let frag_state = FragmentStateBuilder::new(&frag_shader)
+            .push_target_replace(wgpu::TextureFormat::Rgba32Float)
+            .build();
+
+        let pipeline_layout = PipelineLayoutBuilder::new()
+            .push_named("global", global_uniform.get_bind_group_layout())
+            .push_named("tex_vpf", tex_vpf.get_bind_group_layout())
+            .create(device, None);
+
+        let pipeline_blurwv = RenderPipelineBuilder::new(vert_state, frag_state)
+            .set_layout(&pipeline_layout)
+            .build(device);
+
+        // BlurWH Pipeline:
+        let vert_shader = shader_with_shaderc(device, include_str!("shaders/vf_blurwh.glsl"), shaderc::ShaderKind::Vertex, "main", None)?;
+        let frag_shader = shader_with_shaderc(device, include_str!("shaders/vf_blurwh.glsl"), shaderc::ShaderKind::Fragment, "main", None)?;
+
+        let vert_state = VertexStateBuilder::new(&vert_shader)
+            .push_named("model", mesh.vert_buffer_layout())
+            .build();
+
+        let frag_state = FragmentStateBuilder::new(&frag_shader)
+            .push_target_replace(wgpu::TextureFormat::Rgba32Float)
+            .build();
+
+        let pipeline_layout = PipelineLayoutBuilder::new()
+            .push_named("global", global_uniform.get_bind_group_layout())
+            .push_named("tex_vpf", tex_vpf.get_bind_group_layout())
+            .create(device, None);
+
+        let pipeline_blurwh = RenderPipelineBuilder::new(vert_state, frag_state)
+            .set_layout(&pipeline_layout)
+            .build(device);
+
+
+        // Initialisation Pipeline:
         let vert_shader = shader_with_shaderc(device, include_str!("shaders/vf_src_to_color.glsl"), shaderc::ShaderKind::Vertex, "main", None)?;
         let frag_shader = shader_with_shaderc(device, include_str!("shaders/vf_src_to_color.glsl"), shaderc::ShaderKind::Fragment, "main", None)?;
 
@@ -112,6 +159,8 @@ impl PaintSim{
             tex_float_tmp,
             global_uniform,
             pipeline,
+            pipeline_blurwh,
+            pipeline_blurwv,
             pipeline_src_to_color,
             sc: 0,
         })
@@ -147,6 +196,34 @@ impl PaintSim{
             render_pass_pipeline.set_bind_group("tex_vpf", self.tex_vpf.get_bind_group(), &[]);
             render_pass_pipeline.set_bind_group("tex_color", self.tex_color.get_bind_group(), &[]);
             render_pass_pipeline.set_bind_group("tex_float", self.tex_float.get_bind_group(), &[]);
+
+            self.mesh.draw(&mut render_pass_pipeline);
+        }
+        // Blur Vertically
+        {
+            self.tex_vpf_tmp.copy_all_to(&mut self.tex_vpf, encoder);
+            let mut render_pass = RenderPassBuilder::new()
+                .push_color_attachment(self.tex_vpf_tmp.view.color_attachment_clear())
+                .begin(encoder, None);
+
+            let mut render_pass_pipeline = render_pass.set_pipeline(&self.pipeline_blurwv);
+
+            render_pass_pipeline.set_bind_group("global", self.global_uniform.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group("tex_vpf", self.tex_vpf.get_bind_group(), &[]);
+
+            self.mesh.draw(&mut render_pass_pipeline);
+        }
+        // Blur Horizontally
+        {
+            self.tex_vpf_tmp.copy_all_to(&mut self.tex_vpf, encoder);
+            let mut render_pass = RenderPassBuilder::new()
+                .push_color_attachment(self.tex_vpf_tmp.view.color_attachment_clear())
+                .begin(encoder, None);
+
+            let mut render_pass_pipeline = render_pass.set_pipeline(&self.pipeline_blurwh);
+
+            render_pass_pipeline.set_bind_group("global", self.global_uniform.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group("tex_vpf", self.tex_vpf.get_bind_group(), &[]);
 
             self.mesh.draw(&mut render_pass_pipeline);
         }

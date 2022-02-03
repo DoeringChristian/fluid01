@@ -55,12 +55,16 @@ layout(set = 3, binding = 1) uniform sampler s_tex_float;
 #define VMAX sqrt(VMAXX * VMAXX + VMAXY * VMAXY)
 #define HMIN 0.5
 
+#define tex_vpf t_tex_vpf, s_tex_vpf
+#define tex_color t_tex_color, s_tex_color
+#define tex_float t_tex_float, s_tex_float
+
 vec4 v(vec2 pos){
     return texture(sampler2D(t_tex_vpf, s_tex_vpf), pos/global_data.size);
 }
 
 vec4 tex(vec2 pos, texture2D t, sampler s){
-    return texture(sampler2D(t, s), pos/global_data.size);
+    return textureLod(sampler2D(t, s), pos/global_data.size, 0);
 }
 
 vec3 to_ymc(vec3 rgb){
@@ -77,8 +81,37 @@ vec2 pen(float t){
     return vec2(cos(t/4.) * 50, sin(t/4.) * 50) * cos(t/10.) + vec2(300, 300);
 }
 
+float gaus(float x){
+    return exp(-(x * x));
+}
+
+float gaus2(vec2 r){
+    return exp(-dot(r, r));
+}
+
+vec4 blur(vec2 r, vec2 scale, float cutoff, texture2D t, sampler s){
+    float g = gaus2(vec2(0, 0));
+    vec4 res = tex(r, t, s);
+    for(int i = 1; g > cutoff; i++){
+        for(int j = 1; g > cutoff; j++){
+            g = gaus2(vec2(i, j) * scale);
+            res += tex(r + vec2(i, j), t, s) * g;
+            res += tex(r + vec2(i, -j), t, s) * g;
+            res += tex(r + vec2(-i, j), t, s) * g;
+            res += tex(r + vec2(-i, -j), t, s) * g;
+        }
+        g = gaus2(vec2(i, 0) * scale);
+    }
+    return res;
+}
 
 void main(){
+    /*
+    sampler2D tex_vpf = sampler2D(t_tex_vpf, s_tex_vpf);
+    sampler2D tex_color = sampler2D(t_tex_color, s_tex_color);
+    sampler2D tex_float = sampler2D(t_tex_float, s_tex_float);
+    */
+
     // x,y: velocity field,
     // z: preasure field,
     // w: fluidity
@@ -119,7 +152,7 @@ void main(){
     //nu *= vo.w * 0.5;
     //K *= vo.w;
 
-    // mass conservation. z is now equivalent to the column hight.
+    // mass conservation. z is equivalent to the column hight.
     //           ((\nabla p) \cdot u)       + (p \cdot (\nabla u))
     vo.z -= dt * (dx.z * vo.x + dy.z * vo.y + vo.z * div );
 
@@ -140,42 +173,64 @@ void main(){
     // Nullify Divergence:
     vo.xy -= K * vec2(dx.z, dy.z);
 
-    // Move fluidity along field:
-    vo.w = v(r - dt * vo.xy).w;
+    // DEBUG:
+    o_color.r = dx.z;
+    o_color.g = dy.z;
 
     // -----------------------------------------------------------------------------
     // External Sources:
     // pen source: 
     vec2 m = pen(global_data.time);
     //vo.xyw += dt * exp(-(dot(r-m, r-m))/50.) * vec3(m - pen(global_data.time-0.1), 2.);
-    if(global_data.time < 10.){
-        vo.z += exp(-(dot(r-m, r-m))/50.);
+    if(global_data.time < 15.){
+        vo.z += exp(-(dot(r-m, r-m))/50.) * 2.;
     }
-    //vo.xyw += dt * exp(-(dot(r-m, r-m))/50.) * vec3(m - pen(global_data.time-0.1), 1.);
+    //vo.xy += dt * exp(-(dot(r-m, r-m))/50.) * vec2(m - pen(global_data.time-0.1));
     //vo.z += exp(-(dot(r-m, r-m))/50.);
 
-    vo.xyzw = clamp(vo.xyzw, vec4(-VMAXX, -VMAXY, HMIN, 0.), vec4(VMAXX, VMAXY, 3., 5.));
+    vo.xyz = clamp(vo.xyz, vec3(-VMAXX, -VMAXY, HMIN), vec3(VMAXX, VMAXY, 3.));
 
-    // boundary condiation to dry areas of paper.
+    // w is the wet area mask
+    if(vo.z >= HMIN + 0.5 || vo.w >= 0.5)
+        vo.w = 1.00;
+    else
+        vo.w = 0.0;
+    if(vo.z < HMIN){
+        vo.w = 0.0;
+        vo.z = HMIN;
+    }
+    /*
+    if(vo.z <= HMIN + 0.2)
+        vo.w = 0.0;
+    else
+        vo.w = 1.0;
+        */
+    //vo.w = vo.z < HMIN + 0e-5? 0.0: 1.0;
+
+    // apply boundary condiation to dry areas of paper.
     // Von Neumann Boundary Condition.
-    if(length(vo.z) < HMIN + 0.3){
+    if(vo.w < 0.5){
         vo.xy = vec2(0., 0.);
     }
+
     
-    // How much of the dried color is picked up.
-    // (The faster the liquid the more it picks up)
-    float pickup = length(vo.xy)/VMAX;
-    // How much particulate is falling out.
-    // (At slower velocities more particulate falls out)
-    float fallout = (1. - vo.w / VMAX);
+    
+    // Evapuration:
+    float evap_nu = 0.01;
+    //float evap_nu = 0.0;
+    vo.z = vo.z - evap_nu * (1 - v(r).w)*vo.w;
+
+    // DEBUG:
+    o_color.b = (1 - v(r).w)*vo.w;
+    
+
     vec4 brush_color = vec4(1.0, 0.0, 0.0, 0.1);
 
-
-    vec4 fl = tex(r, t_tex_float, s_tex_float);
-    vec4 float_px = tex(r + vec2(1., 0.), t_tex_float, s_tex_float); 
-    vec4 float_nx = tex(r + vec2(-1., 0.), t_tex_float, s_tex_float);
-    vec4 float_py = tex(r + vec2(0., 1.), t_tex_float, s_tex_float); 
-    vec4 float_ny = tex(r + vec2(0., -1.), t_tex_float, s_tex_float);
+    vec4 fl = tex(r, tex_float);
+    vec4 float_px = tex(r + vec2(1., 0.), tex_float); 
+    vec4 float_nx = tex(r + vec2(-1., 0.), tex_float);
+    vec4 float_py = tex(r + vec2(0., 1.), tex_float); 
+    vec4 float_ny = tex(r + vec2(0., -1.), tex_float);
 
     vec4 float_dx = (float_px - float_nx)/2.0;
     vec4 float_dy = (float_py - float_ny)/2.0;
@@ -189,33 +244,26 @@ void main(){
     float float_nu = 0.0;
     // Diffusion coefficient should never be over 1.
     if(vo.z > 0.5001){
-        float_nu = 0.1;
+        float_nu = 0.001;
     }
     //float_nu = 1.0;
+    
 
     // advection: for some reason no pigment is carried away to the edges of the liquid.
     // Wtf... why do I need this multiplicand (3.)? Implies that pigment moves faster than liquid.
-    vec2 vo_s = vo.xy * 3.;
-    o_float = tex(r - dt * vo_s, t_tex_float, s_tex_float);
-    //o_float = tex(r - dt * vo.xy, t_tex_float, s_tex_float);
+    vec2 vo_s = vo.xy;
+    o_float = tex(r - dt * vo_s, tex_float);
+    //o_float = tex(r - dt * vo.xy, tex_float);
     // diffusion
     o_float += dt * float_nu * float_lapl;
-    //o_float += brush_color * exp(-(dot(r-m, r-m))/50.);
+
+    if(global_data.time < 10.)
+        o_float += brush_color * dt * exp(-(dot(r-m, r-m))/50.) * 0.002;
+    
+    /* DEBUG:
     if(length(r - vec2(300, 300)) < 10 && global_data.time < 5){
         o_float = vec4(10, 0, 0, 1);
     }
-
-    // TODO: Alpha of float as ammount of particulate.
-    // Add picked up particulate to floating particulate and remove fallout.
-
-    //o_float = tex(r - dt * vo.xy, t_tex_float, s_tex_float) * (1 - fallout) + tex(r, t_tex_color, s_tex_color) * pickup + brush_color * exp(-(dot(r-m, r-m)/50.));
-
-    // TODO: Dry particulate over time so it is harder to pick up. (use vo.w as water level/fluidity)
-    // Add Fallen out particulate to dried color and remove picked up particulate.
-    //o_color.rgb = tex(r, t_tex_color, s_tex_color).rgb * (1. - pickup) + tex(r - dt * vo.xy, t_tex_float, s_tex_float).rgb * fallout;
-    //o_color.rgb = tex(r, t_tex_color, s_tex_color).rgb * (1 - pickup) + tex(r - dt * vo.xy, t_tex_float, s_tex_float).rgb * fallout;
-    o_color.rg = vo_s;
-
-    vo.w *= 0.999;
+    */
 }
 #endif
