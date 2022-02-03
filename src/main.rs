@@ -23,7 +23,7 @@ struct WinState{
     mesh: Mesh<Vert2>,
     display_rp: pipeline::RenderPipeline,
     //global_uniform: UniformBindGroup<GlobalShaderData>,
-    global_uniform: BindGroup<Uniform<GlobalShaderData>>,
+    global_uniform: UniformBindGroup<GlobalShaderData>,
 
     paintsim: paintsim::PaintSim,
 
@@ -34,7 +34,7 @@ impl State for WinState{
     fn new(app: &mut wgpu_utils::framework::AppState) -> Self {
         let mesh = Mesh::new(&app.device, &Vert2::QUAD_VERTS, &Vert2::QUAD_IDXS).unwrap();
 
-        let global_uniform = UniformBindGroup::<GlobalShaderData>::new_with_data(&app.device, GlobalShaderData{
+        let global_uniform = UniformBindGroup::<GlobalShaderData>::new(&app.device, GlobalShaderData{
             size: [app.size.width as f32, app.size.height as f32],
             time: 0.0,
             _pad0: 0.0,

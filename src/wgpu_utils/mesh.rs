@@ -101,7 +101,7 @@ impl<V: Vert> Model<V>{
             view: view.into(),
             proj: proj.into()
         };
-        let uniform_buffer = UniformBindGroup::new_with_data(device, model_transforms);
+        let uniform_buffer = UniformBindGroup::new(device, model_transforms);
 
         Ok(Self{
             mesh,

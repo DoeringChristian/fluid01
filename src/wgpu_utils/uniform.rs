@@ -125,14 +125,28 @@ impl<C: bytemuck::Pod> binding::BindGroupContent for Uniform<C>{
     }
 }
 
-pub type UniformBindGroup<C> = binding::BindGroup<Uniform<C>>;
+pub struct UniformBindGroup<C: bytemuck::Pod>{
+    bind_group: binding::BindGroup<Uniform<C>>,
+}
 
-impl<C: bytemuck::Pod> UniformBindGroup<C>{
-    pub fn new_zeroed(device: &wgpu::Device) -> Self{
-        binding::BindGroup::new(Uniform::new(device, C::zeroed()), device)
+impl <C: bytemuck::Pod> UniformBindGroup<C>{
+    pub fn new(device: &wgpu::Device, src: C) -> Self{
+        Self{
+            bind_group: binding::BindGroup::new(Uniform::new(device, src), device)
+        }
     }
+}
 
-    pub fn new_with_data(device: &wgpu::Device, src: C) -> Self{
-        binding::BindGroup::new(Uniform::new(device, src), device)
+impl<C: bytemuck::Pod> Deref for UniformBindGroup<C>{
+    type Target = binding::BindGroup<Uniform<C>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.bind_group
+    }
+}
+
+impl<C: bytemuck::Pod> DerefMut for UniformBindGroup<C>{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.bind_group
     }
 }
