@@ -243,7 +243,7 @@ void main(){
     //float float_nu = (vo.z - HMIN) / 2.5 * 2.;
     float float_nu = 0.0;
     // Diffusion coefficient should never be over 1.
-    if(vo.z > 0.5001){
+    if(vo.z > HMIN + 0.001){
         float_nu = 0.001;
     }
     //float_nu = 1.0;

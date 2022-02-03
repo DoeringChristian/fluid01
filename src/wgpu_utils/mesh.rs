@@ -2,6 +2,7 @@ use super::binding;
 use super::pipeline;
 use super::vert::*;
 use super::buffer::*;
+use super::uniform::UniformBindGroup;
 use super::binding::GetBindGroup;
 use bytemuck;
 use cgmath::*;

@@ -1,5 +1,6 @@
+use crate::wgpu_utils::uniform;
 use crate::wgpu_utils::binding::{GetBindGroupLayout, GetBindGroup, BindGroup};
-use crate::wgpu_utils::buffer::UniformBindGroup;
+use crate::wgpu_utils::uniform::UniformBindGroup;
 use crate::wgpu_utils::mesh::Drawable;
 use crate::wgpu_utils::pipeline::{shader_with_shaderc, VertexStateBuilder, FragmentStateBuilder, PipelineLayoutBuilder, RenderPipelineBuilder, RenderPassBuilder};
 use crate::wgpu_utils::render_target::ColorAttachment;
@@ -30,7 +31,7 @@ pub struct PaintSim{
 
     pipeline_src_to_color: pipeline::RenderPipeline,
 
-    global_uniform: buffer::UniformBindGroup<GlobalShaderData>,
+    global_uniform: uniform::UniformBindGroup<GlobalShaderData>,
     
     mesh: Mesh<Vert2>,
 
