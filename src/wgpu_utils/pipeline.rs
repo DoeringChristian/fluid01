@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use std::ops::Deref;
 use std::path::Path;
+use std::path::PathBuf;
 use std::{fs, ops};
 use std::fs::File;
 use std::io::Read;
@@ -356,6 +357,14 @@ pub fn shader_with_shaderc(device: &wgpu::Device, src: &str, kind: shaderc::Shad
     options.add_macro_definition("VERTEX_SHADER", Some(if kind == shaderc::ShaderKind::Vertex {"1"} else {"0"}));
     options.add_macro_definition("FRAGMENT_SHADER", Some(if kind == shaderc::ShaderKind::Fragment {"1"} else {"0"}));
     options.add_macro_definition("COMPUTE_SHADER", Some(if kind == shaderc::ShaderKind::Compute {"1"} else {"0"}));
+
+    /*
+    options.set_include_callback(|name, include_type, source_file, _depth|{
+        let path = if include_type == shaderc::IncludeType::Relative{
+            Path::new(Path::new(source_file).parent().unwrap()).join(name)
+        }
+    });
+    */
 
     //println!("{:?}: \n{}", label, compiler.preprocess(src, "preprocess", entry_point, Some(&options)).unwrap().as_text());
 
