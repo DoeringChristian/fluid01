@@ -47,7 +47,7 @@ impl State for WinState{
         let display_fsh = shader_with_shaderc(&app.device, include_str!("shaders/vf_display.glsl"), shaderc::ShaderKind::Fragment, "main", None).unwrap();
 
         let display_vst = VertexStateBuilder::new(&display_vsh)
-            .push_named("model", mesh.vert_buffer_layout())
+            .push_vert_layout(mesh.vert_buffer_layout())
             .build();
 
         let display_fst = FragmentStateBuilder::new(&display_fsh)
@@ -56,10 +56,10 @@ impl State for WinState{
 
         // TODO: put all textures together into one bindgroup.
         let display_rpl = PipelineLayoutBuilder::new()
-            .push_named("global", global_uniform.get_bind_group_layout())
-            .push_named("tex_vpf", &BindGroup::<Texture>::create_bind_group_layout(&app.device, None))
-            .push_named("tex_color", &BindGroup::<Texture>::create_bind_group_layout(&app.device, None))
-            .push_named("tex_float", &BindGroup::<Texture>::create_bind_group_layout(&app.device, None))
+            .push(global_uniform.get_bind_group_layout())
+            .push(&BindGroup::<Texture>::create_bind_group_layout(&app.device, None))
+            .push(&BindGroup::<Texture>::create_bind_group_layout(&app.device, None))
+            .push(&BindGroup::<Texture>::create_bind_group_layout(&app.device, None))
             .create(&app.device, None);
 
         let display_rp = RenderPipelineBuilder::new(display_vst, display_fst)
@@ -93,10 +93,10 @@ impl State for WinState{
                 .begin(&mut encoder, None);
 
             let mut render_pass_pipeline = render_pass.set_pipeline(&self.display_rp);
-            render_pass_pipeline.set_bind_group("global", self.global_uniform.get_bind_group(), &[]);
-            render_pass_pipeline.set_bind_group("tex_vpf", self.paintsim.tex_vpf.get_bind_group(), &[]);
-            render_pass_pipeline.set_bind_group("tex_color", self.paintsim.tex_color.get_bind_group(), &[]);
-            render_pass_pipeline.set_bind_group("tex_float", self.paintsim.tex_float.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group(0, self.global_uniform.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group(1, self.paintsim.tex_vpf.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group(2, self.paintsim.tex_color.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group(3, self.paintsim.tex_float.get_bind_group(), &[]);
 
             self.mesh.draw(&mut render_pass_pipeline);
         }

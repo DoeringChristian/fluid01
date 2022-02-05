@@ -66,7 +66,7 @@ impl<V: Vert> Mesh<V>{
 impl<V: Vert> Drawable for Mesh<V>{
     fn draw<'rp>(&'rp self, render_pass: &'_ mut pipeline::RenderPassPipeline<'rp, '_>) {
 
-        render_pass.set_vertex_buffer("model", self.vert_buffer.slice(..));
+        render_pass.set_vertex_buffer(0, self.vert_buffer.slice(..));
         render_pass.set_index_buffer(self.idx_buffer.slice(..), wgpu::IndexFormat::Uint32);
         render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
     }
@@ -112,7 +112,7 @@ impl<V: Vert> Model<V>{
 
 impl<V: Vert> Drawable for Model<V>{
     fn draw<'rp>(&'rp self, render_pass: &'_ mut pipeline::RenderPassPipeline<'rp, '_>) {
-        render_pass.set_bind_group("transforms", &self.uniform_buffer.get_bind_group(), &[]);
+        render_pass.set_bind_group(0, &self.uniform_buffer.get_bind_group(), &[]);
 
         self.mesh.draw(render_pass);
     }

@@ -6,8 +6,8 @@ use crate::wgpu_utils::pipeline::{shader_with_shaderc, VertexStateBuilder, Fragm
 use crate::wgpu_utils::render_target::ColorAttachment;
 use crate::wgpu_utils::{texture::Texture, mesh::Mesh, vert::Vert2, pipeline, buffer};
 use crate::GlobalShaderData;
+use crate::wgpu_utils::binding::CreateBindGroupLayout;
 use anyhow::*;
-
 
 pub struct PaintSim{
     // texture storing the velocity, preasure and fluidity.
@@ -64,7 +64,7 @@ impl PaintSim{
         let frag_shader = shader_with_shaderc(device, include_str!("shaders/vf_paint04.glsl"), shaderc::ShaderKind::Fragment, "main", None)?;
 
         let vert_state = VertexStateBuilder::new(&vert_shader)
-            .push_named("model", mesh.vert_buffer_layout())
+            .push_vert_layout(mesh.vert_buffer_layout())
             .build();
 
         let frag_state = FragmentStateBuilder::new(&frag_shader)
@@ -74,10 +74,10 @@ impl PaintSim{
             .build();
         
         let pipeline_layout = PipelineLayoutBuilder::new()
-            .push_named("global", global_uniform.get_bind_group_layout())
-            .push_named("tex_vpf", tex_vpf.get_bind_group_layout())
-            .push_named("tex_color", tex_color.get_bind_group_layout())
-            .push_named("tex_float", tex_float.get_bind_group_layout())
+            .push(global_uniform.get_bind_group_layout())
+            .push(tex_vpf.get_bind_group_layout())
+            .push(tex_color.get_bind_group_layout())
+            .push(tex_float.get_bind_group_layout())
             .create(device, None);
 
         let pipeline = RenderPipelineBuilder::new(vert_state, frag_state)
@@ -89,7 +89,7 @@ impl PaintSim{
         let frag_shader = shader_with_shaderc(device, include_str!("shaders/vf_blurwv.glsl"), shaderc::ShaderKind::Fragment, "main", None)?;
 
         let vert_state = VertexStateBuilder::new(&vert_shader)
-            .push_named("model", mesh.vert_buffer_layout())
+            .push_vert_layout(mesh.vert_buffer_layout())
             .build();
 
         let frag_state = FragmentStateBuilder::new(&frag_shader)
@@ -97,8 +97,8 @@ impl PaintSim{
             .build();
 
         let pipeline_layout = PipelineLayoutBuilder::new()
-            .push_named("global", global_uniform.get_bind_group_layout())
-            .push_named("tex_vpf", tex_vpf.get_bind_group_layout())
+            .push(global_uniform.get_bind_group_layout())
+            .push(tex_vpf.get_bind_group_layout())
             .create(device, None);
 
         let pipeline_blurwv = RenderPipelineBuilder::new(vert_state, frag_state)
@@ -110,7 +110,7 @@ impl PaintSim{
         let frag_shader = shader_with_shaderc(device, include_str!("shaders/vf_blurwh.glsl"), shaderc::ShaderKind::Fragment, "main", None)?;
 
         let vert_state = VertexStateBuilder::new(&vert_shader)
-            .push_named("model", mesh.vert_buffer_layout())
+            .push_vert_layout(mesh.vert_buffer_layout())
             .build();
 
         let frag_state = FragmentStateBuilder::new(&frag_shader)
@@ -118,8 +118,8 @@ impl PaintSim{
             .build();
 
         let pipeline_layout = PipelineLayoutBuilder::new()
-            .push_named("global", global_uniform.get_bind_group_layout())
-            .push_named("tex_vpf", tex_vpf.get_bind_group_layout())
+            .push(global_uniform.get_bind_group_layout())
+            .push(tex_vpf.get_bind_group_layout())
             .create(device, None);
 
         let pipeline_blurwh = RenderPipelineBuilder::new(vert_state, frag_state)
@@ -132,7 +132,7 @@ impl PaintSim{
         let frag_shader = shader_with_shaderc(device, include_str!("shaders/vf_src_to_color.glsl"), shaderc::ShaderKind::Fragment, "main", None)?;
 
         let vert_state = VertexStateBuilder::new(&vert_shader)
-            .push_named("model", mesh.vert_buffer_layout())
+            .push_vert_layout(mesh.vert_buffer_layout())
             .build();
 
         let frag_state = FragmentStateBuilder::new(&frag_shader)
@@ -140,7 +140,7 @@ impl PaintSim{
             .build();
         
         let pipeline_layout = PipelineLayoutBuilder::new()
-            .push_named("tex_src", tex_src.get_bind_group_layout())
+            .push(tex_src.get_bind_group_layout())
             .create(device, None);
 
         let pipeline_src_to_color = RenderPipelineBuilder::new(vert_state, frag_state)
@@ -175,7 +175,7 @@ impl PaintSim{
 
             let mut render_pass_pipeline = render_pass.set_pipeline(&self.pipeline_src_to_color);
 
-            render_pass_pipeline.set_bind_group("tex_src", self.tex_src.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group(0, self.tex_src.get_bind_group(), &[]);
             
             self.mesh.draw(&mut render_pass_pipeline);
         }
@@ -193,10 +193,10 @@ impl PaintSim{
 
             let mut render_pass_pipeline = render_pass.set_pipeline(&self.pipeline);
 
-            render_pass_pipeline.set_bind_group("global", self.global_uniform.get_bind_group(), &[]);
-            render_pass_pipeline.set_bind_group("tex_vpf", self.tex_vpf.get_bind_group(), &[]);
-            render_pass_pipeline.set_bind_group("tex_color", self.tex_color.get_bind_group(), &[]);
-            render_pass_pipeline.set_bind_group("tex_float", self.tex_float.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group(0, self.global_uniform.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group(1, self.tex_vpf.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group(2, self.tex_color.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group(3, self.tex_float.get_bind_group(), &[]);
 
             self.mesh.draw(&mut render_pass_pipeline);
         }
@@ -209,8 +209,8 @@ impl PaintSim{
 
             let mut render_pass_pipeline = render_pass.set_pipeline(&self.pipeline_blurwv);
 
-            render_pass_pipeline.set_bind_group("global", self.global_uniform.get_bind_group(), &[]);
-            render_pass_pipeline.set_bind_group("tex_vpf", self.tex_vpf.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group(0, self.global_uniform.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group(1, self.tex_vpf.get_bind_group(), &[]);
 
             self.mesh.draw(&mut render_pass_pipeline);
         }
@@ -223,8 +223,8 @@ impl PaintSim{
 
             let mut render_pass_pipeline = render_pass.set_pipeline(&self.pipeline_blurwh);
 
-            render_pass_pipeline.set_bind_group("global", self.global_uniform.get_bind_group(), &[]);
-            render_pass_pipeline.set_bind_group("tex_vpf", self.tex_vpf.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group(0, self.global_uniform.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group(1, self.tex_vpf.get_bind_group(), &[]);
 
             self.mesh.draw(&mut render_pass_pipeline);
         }

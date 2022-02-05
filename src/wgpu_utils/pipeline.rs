@@ -88,15 +88,12 @@ impl <'fsb> FragmentStateBuilder<'fsb>{
 ///
 pub struct VertexState<'vs>{
     pub vertex_buffer_layouts: Vec<wgpu::VertexBufferLayout<'vs>>,
-    /// used to save names and corresponding indices.
-    pub vertex_buffer_names: Arc<HashMap<String, usize>>,
     pub entry_point: &'vs str,
     pub vertex_shader: &'vs wgpu::ShaderModule,
 }
 
 pub struct VertexStateBuilder<'vsb>{
     vertex_buffer_layouts: Vec<wgpu::VertexBufferLayout<'vsb>>,
-    vertex_buffer_names: HashMap<String, usize>,
     entry_point: &'vsb str,
     //module: &'vsb wgpu::ShaderModule,
     vertex_shader: &'vsb wgpu::ShaderModule,
@@ -107,7 +104,6 @@ impl <'vsb> VertexStateBuilder<'vsb>{
     pub fn new(vertex_shader: &'vsb wgpu::ShaderModule) -> Self{
         Self{
             vertex_buffer_layouts: Vec::new(),
-            vertex_buffer_names: HashMap::new(),
             entry_point: DEFAULT_ENTRY_POINT,
             index: 0,
             vertex_shader,
@@ -119,22 +115,13 @@ impl <'vsb> VertexStateBuilder<'vsb>{
         self
     }
 
-    pub fn push_named(mut self, name: &str, vertex_buffer_layout: wgpu::VertexBufferLayout<'vsb>) -> Self{
-        if let Some(index) = self.vertex_buffer_names.get(name){
-            self.vertex_buffer_layouts.remove(*index);
-            self.vertex_buffer_layouts.insert(*index, vertex_buffer_layout);
-        }
-        else{
-            self.vertex_buffer_names.insert(name.to_string(), self.index);
-            self.index += 1;
-            self.vertex_buffer_layouts.push(vertex_buffer_layout);
-        }
+    pub fn push_vert_layout(mut self, vertex_buffer_layout: wgpu::VertexBufferLayout<'vsb>) -> Self{
+        self.vertex_buffer_layouts.push(vertex_buffer_layout);
         self
     }
 
     pub fn build(&self) -> VertexState<'vsb>{
         VertexState{
-            vertex_buffer_names: Arc::new(self.vertex_buffer_names.clone()),
             vertex_buffer_layouts: self.vertex_buffer_layouts.clone(),
             entry_point: self.entry_point,
             vertex_shader: self.vertex_shader,
@@ -144,20 +131,16 @@ impl <'vsb> VertexStateBuilder<'vsb>{
 
 pub struct RenderPipeline{
     pub pipeline: wgpu::RenderPipeline,
-    pub bind_group_names: Arc<HashMap<String, usize>>,
-    pub vertex_buffer_names: Arc<HashMap<String, usize>>,
 }
 
 pub struct PipelineLayout{
     pub layout: wgpu::PipelineLayout,
-    pub names: Arc<HashMap<String, usize>>,
 }
 
 // TODO: put bind_group_names in Arc
 pub struct PipelineLayoutBuilder<'l>{
     bind_group_layouts: Vec<&'l binding::BindGroupLayoutWithDesc>,
     push_constant_ranges: Vec<wgpu::PushConstantRange>,
-    bind_group_names: HashMap<String, usize>,
     index: usize,
 }
 
@@ -166,21 +149,12 @@ impl<'l> PipelineLayoutBuilder<'l>{
         Self{
             bind_group_layouts: Vec::new(),
             push_constant_ranges: Vec::new(),
-            bind_group_names: HashMap::new(),
             index: 0,
         }
     }
 
-    pub fn push_named(mut self, name: &str, bind_group_layout: &'l binding::BindGroupLayoutWithDesc) -> Self{
-        if let Some(index) = self.bind_group_names.get(name){
-            self.bind_group_layouts.remove(*index);
-            self.bind_group_layouts.insert(*index, bind_group_layout);
-        }
-        else{
-            self.bind_group_names.insert(name.to_string(), self.index);
-            self.index += 1;
-            self.bind_group_layouts.push(bind_group_layout);
-        }
+    pub fn push(mut self, bind_group_layout: &'l binding::BindGroupLayoutWithDesc) -> Self{
+        self.bind_group_layouts.push(bind_group_layout);
         self
     }
 
@@ -202,7 +176,6 @@ impl<'l> PipelineLayoutBuilder<'l>{
                 bind_group_layouts: &bind_group_layouts,
                 push_constant_ranges: &self.push_constant_ranges,
             }),
-            names: Arc::new(self.bind_group_names),
         }
     }
 }
@@ -213,10 +186,11 @@ pub struct RenderPassPipeline<'rp, 'rpr>{
 }
 
 impl<'rp, 'rpr> RenderPassPipeline<'rp, 'rpr>{
-    pub fn set_bind_group(&mut self, name: &str, bind_group: &'rp wgpu::BindGroup, offsets: &'rp [wgpu::DynamicOffset]){
+    pub fn set_bind_group(&mut self, index: u32, bind_group: &'rp wgpu::BindGroup, offsets: &'rp [wgpu::DynamicOffset]){
         self.render_pass.render_pass.set_bind_group(
-            self.pipeline.bind_group_names[name] as u32, 
-            bind_group, offsets
+            index,
+            bind_group,
+            offsets
         );
     }
 
@@ -230,9 +204,9 @@ impl<'rp, 'rpr> RenderPassPipeline<'rp, 'rpr>{
         }
     }
 
-    pub fn set_vertex_buffer(&mut self, name: &str, buffer_slice: wgpu::BufferSlice<'rp>){
+    pub fn set_vertex_buffer(&mut self, index: u32, buffer_slice: wgpu::BufferSlice<'rp>){
         self.render_pass.render_pass.set_vertex_buffer(
-            self.pipeline.vertex_buffer_names[name] as u32, 
+            index,
             buffer_slice
         );
     }
@@ -472,8 +446,6 @@ impl<'rpb> RenderPipelineBuilder<'rpb>{
 
         RenderPipeline{
             pipeline: render_pipeline,
-            bind_group_names: layout.names.clone(),
-            vertex_buffer_names: self.vertex.vertex_buffer_names.clone(),
         }
     }
 }
