@@ -129,6 +129,12 @@ pub struct UniformBindGroup<C: bytemuck::Pod>{
     bind_group: binding::BindGroup<Uniform<C>>,
 }
 
+impl<C: bytemuck::Pod> binding::CreateBindGroupLayout for UniformBindGroup<C>{
+    fn create_bind_group_layout(device: &wgpu::Device, label: Option<&str>) -> binding::BindGroupLayoutWithDesc {
+        binding::BindGroup::<Uniform<C>>::create_bind_group_layout(device, label)
+    }
+}
+
 impl <C: bytemuck::Pod> UniformBindGroup<C>{
     pub fn new(device: &wgpu::Device, src: C) -> Self{
         Self{

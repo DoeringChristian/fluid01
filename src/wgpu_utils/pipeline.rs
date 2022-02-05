@@ -9,6 +9,7 @@ use std::str;
 use std::sync::Arc;
 use super::binding;
 use std::borrow::Cow;
+use std::marker::PhantomData;
 use anyhow::*;
 use core::ops::Range;
 use core::num::NonZeroU32;
@@ -16,11 +17,6 @@ use naga;
 
 const DEFAULT_TEXTURE_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Bgra8Unorm;
 const DEFAULT_ENTRY_POINT: &'static str = "main";
-
-pub trait RenderData{
-    fn pipeline_layout() -> PipelineLayout;
-    fn set_bind_groups(&self, render_pass_pipeline: &mut RenderPassPipeline);
-}
 
 pub struct FragmentState<'fs>{
     pub targets: Vec<wgpu::ColorTargetState>,
@@ -129,8 +125,9 @@ impl <'vsb> VertexStateBuilder<'vsb>{
     }
 }
 
-pub struct RenderPipeline{
+pub struct RenderPipeline<D: RenderDataLayout>{
     pub pipeline: wgpu::RenderPipeline,
+    _ty: PhantomData<D>,
 }
 
 pub struct PipelineLayout{
@@ -180,12 +177,21 @@ impl<'l> PipelineLayoutBuilder<'l>{
     }
 }
 
-pub struct RenderPassPipeline<'rp, 'rpr>{
-    pub render_pass: &'rpr mut RenderPass<'rp>,
-    pub pipeline: &'rp RenderPipeline,
+pub trait RenderDataLayout{
+    fn create_pipeline_layout(device: &wgpu::Device) -> PipelineLayout;
 }
 
-impl<'rp, 'rpr> RenderPassPipeline<'rp, 'rpr>{
+pub trait RenderData<'rd>: Default + RenderDataLayout{
+
+}
+
+pub struct RenderPassPipeline<'rp, 'rpr, D: RenderData<'rp>>{
+    pub render_pass: &'rpr mut RenderPass<'rp>,
+    pub pipeline: &'rp RenderPipeline<D>,
+    pub data: D,
+}
+
+impl<'rp, 'rpr, D: RenderData<'rp>> RenderPassPipeline<'rp, 'rpr, D>{
     pub fn set_bind_group(&mut self, index: u32, bind_group: &'rp wgpu::BindGroup, offsets: &'rp [wgpu::DynamicOffset]){
         self.render_pass.render_pass.set_bind_group(
             index,
@@ -224,9 +230,10 @@ impl<'rp, 'rpr> RenderPassPipeline<'rp, 'rpr>{
         self.render_pass.render_pass.draw_indexed(indices, base_vertex, instances);
     }
 
-    pub fn set_pipeline(&'rpr mut self, pipeline: &'rp RenderPipeline) -> Self{
+    pub fn set_pipeline<T: RenderData<'rp>>(&'rpr mut self, pipeline: &'rp RenderPipeline<T>) -> RenderPassPipeline<T>{
         self.render_pass.render_pass.set_pipeline(&pipeline.pipeline);
         Self{
+            data: T::default(),
             render_pass: self.render_pass,
             pipeline,
         }
@@ -247,9 +254,10 @@ pub struct RenderPass<'rp>{
 
 impl<'rp> RenderPass<'rp>{
 
-    pub fn set_pipeline(&mut self, pipeline: &'rp RenderPipeline) -> RenderPassPipeline<'rp, '_>{
+    pub fn set_pipeline<D: RenderDataLayout>(&mut self, pipeline: &'rp RenderPipeline<D>) -> RenderPassPipeline<'rp, '_, D>{
         self.render_pass.set_pipeline(&pipeline.pipeline);
         RenderPassPipeline{
+            data: D::default(),
             render_pass: self,
             pipeline,
         }
@@ -274,6 +282,7 @@ impl<'rp> RenderPassBuilder<'rp>{
         }
     }
 
+    // TODO: make color_attachment mut so that texture cannot be used as src.
     pub fn push_color_attachment(mut self, color_attachment: wgpu::RenderPassColorAttachment<'rp>) -> Self{
         self.color_attachments.push(color_attachment);
         self
@@ -404,7 +413,7 @@ impl<'rpb> RenderPipelineBuilder<'rpb>{
         self
     }
 
-    pub fn build(self, device: &wgpu::Device) -> RenderPipeline{
+    pub fn build<D: RenderDataLayout>(self, device: &wgpu::Device) -> RenderPipeline<D>{
 
         /*
         let layout = match self.layout{
@@ -446,6 +455,7 @@ impl<'rpb> RenderPipelineBuilder<'rpb>{
 
         RenderPipeline{
             pipeline: render_pipeline,
+            _ty: PhantomData,
         }
     }
 }

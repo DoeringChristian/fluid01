@@ -2,12 +2,39 @@ use crate::wgpu_utils::uniform;
 use crate::wgpu_utils::binding::{GetBindGroupLayout, GetBindGroup, BindGroup};
 use crate::wgpu_utils::uniform::UniformBindGroup;
 use crate::wgpu_utils::mesh::Drawable;
-use crate::wgpu_utils::pipeline::{shader_with_shaderc, VertexStateBuilder, FragmentStateBuilder, PipelineLayoutBuilder, RenderPipelineBuilder, RenderPassBuilder};
+use crate::wgpu_utils::pipeline::{shader_with_shaderc, VertexStateBuilder, FragmentStateBuilder, PipelineLayoutBuilder, RenderPipelineBuilder, RenderPassBuilder, PipelineLayout, RenderDataLayout};
 use crate::wgpu_utils::render_target::ColorAttachment;
 use crate::wgpu_utils::{texture::Texture, mesh::Mesh, vert::Vert2, pipeline, buffer};
 use crate::GlobalShaderData;
+use crate::wgpu_utils::uniform::Uniform;
 use crate::wgpu_utils::binding::CreateBindGroupLayout;
+use std::marker::PhantomData;
+use std::sync::{Arc, Mutex};
 use anyhow::*;
+
+// TODO: Use Arc or Rc instead of pointer.
+#[derive(Default)]
+pub struct PaintRenderData<'rd>{
+    global_uniform: Option<&'rd BindGroup<Uniform<GlobalShaderData>>>,
+    tex_vpf: Option<&'rd BindGroup<Texture>>,
+    tex_color: Option<&'rd BindGroup<Texture>>,
+    tex_float: Option<&'rd BindGroup<Texture>>,
+}
+
+pub struct PaintRenderDataLayout{
+
+}
+
+impl RenderDataLayout for PaintRenderDataLayout{
+    fn create_pipeline_layout(device: &wgpu::Device) -> PipelineLayout {
+        PipelineLayoutBuilder::new()
+            .push(&BindGroup::<Uniform<GlobalShaderData>>::create_bind_group_layout(device, None))
+            .push(&BindGroup::<Texture>::create_bind_group_layout(device, None))
+            .push(&BindGroup::<Texture>::create_bind_group_layout(device, None))
+            .push(&BindGroup::<Texture>::create_bind_group_layout(device, None))
+            .create(device, None)
+    }
+}
 
 pub struct PaintSim{
     // texture storing the velocity, preasure and fluidity.
@@ -25,7 +52,8 @@ pub struct PaintSim{
     // texture storing the initial image.
     pub tex_src: BindGroup<Texture>,
 
-    pipeline: pipeline::RenderPipeline,
+    pipeline: pipeline::RenderPipeline<PaintRenderDataLayout>,
+    //paint_render_data: PaintRenderData,
     pipeline_blurwh: pipeline::RenderPipeline,
     pipeline_blurwv: pipeline::RenderPipeline,
 
@@ -53,6 +81,8 @@ impl PaintSim{
         let tex_float = BindGroup::new(Texture::new_black(tex_src.size, device, queue, None, wgpu::TextureFormat::Rgba32Float)?, device); 
         let tex_float_tmp = Texture::new_black(tex_src.size, device, queue, None, wgpu::TextureFormat::Rgba32Float)?; 
 
+        //let paint_render_data = PaintRenderData::default();
+
         let global_uniform = UniformBindGroup::<GlobalShaderData>::new(device, GlobalShaderData{
             size: [tex_src.size[0] as f32, tex_src.size[1] as f32],
             time: 0.0,
@@ -73,12 +103,15 @@ impl PaintSim{
             .push_target_replace(wgpu::TextureFormat::Rgba32Float)
             .build();
         
+        //let pipeline_layout = PaintRenderData::create_pipeline_layout(device);
+        
         let pipeline_layout = PipelineLayoutBuilder::new()
             .push(global_uniform.get_bind_group_layout())
             .push(tex_vpf.get_bind_group_layout())
             .push(tex_color.get_bind_group_layout())
             .push(tex_float.get_bind_group_layout())
             .create(device, None);
+       
 
         let pipeline = RenderPipelineBuilder::new(vert_state, frag_state)
             .set_layout(&pipeline_layout)
@@ -160,6 +193,7 @@ impl PaintSim{
             tex_float_tmp,
             global_uniform,
             pipeline,
+            //paint_render_data,
             pipeline_blurwh,
             pipeline_blurwv,
             pipeline_src_to_color,

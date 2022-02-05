@@ -19,6 +19,12 @@ struct GlobalShaderData{
     _pad0: f32,
 }
 
+#[derive(Default)]
+struct DisplayData{
+
+}
+
+
 struct WinState{
     mesh: Mesh<Vert2>,
     display_rp: pipeline::RenderPipeline,

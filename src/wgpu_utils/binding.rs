@@ -3,6 +3,7 @@ use anyhow::*;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
+use std::sync::Mutex;
 use std::any::{Any, TypeId};
 
 pub trait CreateBindGroupLayout{
@@ -304,6 +305,30 @@ impl<C: BindGroupContent> GetBindGroup for BindGroup<C>{
         &self.bind_group
     }
 }
+
+/*
+pub struct RenderResource<C: BindGroupContent>(Arc<Mutex<BindGroup<C>>>);
+
+impl<C: BindGroupContent> RenderResource<C>{
+    pub fn new(content: C, device: &wgpu::Device) -> Self{
+        Self(Arc::new(Mutex::new(BindGroup::new(content, device))))
+    }
+}
+
+impl<C: BindGroupContent> Deref for RenderResource<C>{
+    type Target = BindGroup<C>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0.lock().unwrap()
+    }
+}
+
+impl<C: BindGroupContent> DerefMut for RenderResource<C>{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0.lock().unwrap()
+    }
+}
+*/
 
 
 
