@@ -1,6 +1,6 @@
 use anyhow::*;
 use wgpu::util::DeviceExt;
-use std::{marker::PhantomData, ops::{Deref, DerefMut}, borrow::{Borrow, BorrowMut}};
+use std::{marker::PhantomData, ops::{Deref, DerefMut, RangeBounds}, borrow::{Borrow, BorrowMut}};
 use binding::CreateBindGroupLayout;
 
 use super::binding;
@@ -46,7 +46,7 @@ impl<C: bytemuck::Pod> Buffer<C>{
         Self::new(device, wgpu::BufferUsages::VERTEX, label, data)
     }
 
-    pub fn new_comp(device: &wgpu::Device, label: wgpu::Label, data: &[C]) -> Self{
+    pub fn new_storage(device: &wgpu::Device, label: wgpu::Label, data: &[C]) -> Self{
         Self::new(device, wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::MAP_READ, label, data)
     }
     
@@ -159,6 +159,76 @@ impl<C: bytemuck::Pod> DerefMut for Buffer<C>{
     }
 }
 
+pub struct MappedBufferView<'mbr, C: bytemuck::Pod>{
+    mapped_buffer: &'mbr MappedBuffer<C>,
+    buffer_view: wgpu::BufferView<'mbr>,
+}
+
+impl<'mbr, C: bytemuck::Pod> AsRef<[C]> for MappedBufferView<'mbr, C>{
+    fn as_ref(&self) -> &[C] {
+        bytemuck::cast_slice(self.buffer_view.as_ref())
+    }
+}
+
+impl<'mbr, C: bytemuck::Pod> Deref for MappedBufferView<'mbr, C>{
+    type Target = [C];
+
+    fn deref(&self) -> &Self::Target {
+        bytemuck::cast_slice(self.buffer_view.as_ref())
+    }
+}
+
+impl<'mbr, C: bytemuck::Pod> Drop for MappedBufferView<'mbr, C>{
+    fn drop(&mut self) {
+        self.mapped_buffer.buffer.unmap();
+    }
+}
+
+pub struct MappedBufferViewMut<'mbr, C: bytemuck::Pod>{
+    mapped_buffer: &'mbr MappedBuffer<C>,
+    buffer_view: wgpu::BufferViewMut<'mbr>,
+}
+
+impl<'mbr, C: bytemuck::Pod> AsMut<[C]> for MappedBufferViewMut<'mbr, C>{
+    fn as_mut(&mut self) -> &mut [C] {
+        bytemuck::cast_slice_mut(self.buffer_view.as_mut())
+    }
+}
+
+impl<'mbr, C: bytemuck::Pod> Deref for MappedBufferViewMut<'mbr, C>{
+    type Target = [C];
+
+    fn deref(&self) -> &Self::Target {
+        bytemuck::cast_slice(self.buffer_view.as_ref())
+    }
+}
+
+impl<'mbr, C: bytemuck::Pod> DerefMut for MappedBufferViewMut<'mbr, C>{
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        bytemuck::cast_slice_mut(self.buffer_view.as_mut())
+    }
+}
+
+impl<'mbr, C: bytemuck::Pod> Drop for MappedBufferViewMut<'mbr, C>{
+    fn drop(&mut self) {
+        self.mapped_buffer.buffer.unmap();
+    }
+}
+
+///
+/// A MappedBuffer is a Buffer, that can be mapped into CPU Memory.
+///
+/// It wraps the wgpu::Buffer with the content of type C to prevent type missmatch.
+///
+/// ```rust
+/// let array = [0, 1, 2, 3, 4];
+/// let mapped_buffer = MappedBuffer::new_storage(device, None, array);
+///
+/// mapped_buffer.slice(..)[0] = 1;
+///
+/// let i = mapped_buffer.slice(..)[0];
+/// ```
+/// TODO: Add new_mapped_at_creation.
 pub struct MappedBuffer<C: bytemuck::Pod>(Buffer<C>);
 
 impl<C: bytemuck::Pod> MappedBuffer<C>{
@@ -184,6 +254,25 @@ impl<C: bytemuck::Pod> MappedBuffer<C>{
 
     pub fn new_uniform(device: &wgpu::Device, label: wgpu::Label, data: &[C]) -> Self{
         Self::new(device, wgpu::BufferUsages::UNIFORM, label, data)
+    }
+
+    pub fn new_storage(device: &wgpu::Device, label: wgpu::Label, data: &[C]) -> Self{
+        Self::new(device, wgpu::BufferUsages::STORAGE, label, data)
+    }
+
+    pub fn slice<'mbr, S: RangeBounds<wgpu::BufferAddress>>(&'mbr self, bounds: S) -> MappedBufferView<'mbr, C>{
+        MappedBufferView{
+            mapped_buffer: self,
+            buffer_view: self.buffer.slice(bounds).get_mapped_range(),
+        }
+    }
+
+    // TODO: async and not async methodes for slicing buffer
+    pub fn slice_mut<'mbr, S: RangeBounds<wgpu::BufferAddress>>(&'mbr mut self, bounds: S) -> MappedBufferViewMut<'mbr, C>{
+        MappedBufferViewMut{
+            mapped_buffer: self,
+            buffer_view: self.buffer.slice(bounds).get_mapped_range_mut(),
+        }
     }
 }
 

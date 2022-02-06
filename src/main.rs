@@ -1,6 +1,6 @@
 use bytemuck::Zeroable;
 use wgpu::RenderPipeline;
-use wgpu_utils::{framework::{State, Framework}, mesh::{Mesh, Drawable}, vert::Vert2, pipeline::{self, RenderPipelineBuilder, shader_with_shaderc, VertexStateBuilder, FragmentStateBuilder, PipelineLayoutBuilder, RenderPass, RenderPassBuilder}, render_target::ColorAttachment, uniform::{UniformBindGroup, Uniform}, binding::{GetBindGroupLayout, GetBindGroup, CreateBindGroupLayout, BindGroup}, texture::Texture};
+use wgpu_utils::{framework::{State, Framework}, mesh::{Mesh, Drawable}, vert::Vert2, pipeline::{self, RenderPipelineBuilder, shader_with_shaderc, VertexStateBuilder, FragmentStateBuilder, PipelineLayoutBuilder, RenderPass, RenderPassBuilder}, render_target::ColorAttachment, uniform::{UniformBindGroup, Uniform}, binding::{GetBindGroupLayout, GetBindGroup, CreateBindGroupLayout, BindGroup}, texture::Texture, buffer::MappedBuffer};
 
 #[macro_use]
 extern crate more_asserts;
@@ -117,6 +117,12 @@ impl State for WinState{
         let mut encoder = app.device.create_command_encoder(&wgpu::CommandEncoderDescriptor{
             label: Some("PreRenderEncoder"),
         });
+
+        app.device.poll(wgpu::Maintain::Wait);
+
+        let mut test = MappedBuffer::new_storage(&app.device, None, &[0, 1, 2]);
+        //test.slice_mut(..)[0] = 1;
+
 
         self.paintsim.prepare(&app.queue, &mut encoder);
 

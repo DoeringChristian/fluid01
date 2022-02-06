@@ -48,7 +48,8 @@ impl AppState{
             &wgpu::DeviceDescriptor{
                 features: wgpu::Features::empty()
                     .union(wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES)
-                    .union(wgpu::Features::VERTEX_WRITABLE_STORAGE),
+                    .union(wgpu::Features::VERTEX_WRITABLE_STORAGE)
+                    .union(wgpu::Features::MAPPABLE_PRIMARY_BUFFERS),
                 limits: wgpu::Limits::default(),
                 label: None,
             },

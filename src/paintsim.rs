@@ -1,5 +1,5 @@
 use crate::wgpu_utils::binding::{GetBindGroupLayout, GetBindGroup, BindGroup};
-use crate::wgpu_utils::buffer::Buffer;
+use crate::wgpu_utils::buffer::{Buffer, MappedBuffer};
 use crate::wgpu_utils::uniform::{self, UniformBindGroup, Uniform, UniformVec};
 use crate::wgpu_utils::mesh::Drawable;
 use crate::wgpu_utils::pipeline::{shader_with_shaderc, VertexStateBuilder, FragmentStateBuilder, PipelineLayoutBuilder, RenderPipelineBuilder, RenderPassBuilder, PipelineLayout, ComputePipeline};
@@ -83,8 +83,8 @@ impl PaintSim{
 
         let comp_shader = shader_with_shaderc(device, include_str!("shaders/comp_test01.glsl"), shaderc::ShaderKind::Compute, "main", None)?;
 
-        let in_buffer = BindGroup::new(Buffer::new_comp(device, None, &[0]), device);
-        let out_buffer = BindGroup::new(Buffer::new_comp(device, None, &[0]), device);
+        let in_buffer = BindGroup::new(Buffer::new_storage(device, None, &[0]), device);
+        let out_buffer = BindGroup::new(Buffer::new_storage(device, None, &[0]), device);
 
         let comp_layout = PipelineLayoutBuilder::new()
             .push(&BindGroup::<Buffer<i32>>::create_bind_group_layout(device, None))
