@@ -125,7 +125,7 @@ impl <'vsb> VertexStateBuilder<'vsb>{
     }
 }
 
-pub struct RenderPipeline<D: RenderDataLayout>{
+pub struct RenderPipeline<D: RenderData<'static>>{
     pub pipeline: wgpu::RenderPipeline,
     _ty: PhantomData<D>,
 }
@@ -177,12 +177,9 @@ impl<'l> PipelineLayoutBuilder<'l>{
     }
 }
 
-pub trait RenderDataLayout{
+pub trait RenderData<'rd>{
     fn create_pipeline_layout(device: &wgpu::Device) -> PipelineLayout;
-}
-
-pub trait RenderData<'rd>: Default + RenderDataLayout{
-
+    fn push_bindgroups_to(&self, rpass_ppl: &mut RenderPassPipeline<'rd, '_, Self>);
 }
 
 pub struct RenderPassPipeline<'rp, 'rpr, D: RenderData<'rp>>{
@@ -198,16 +195,6 @@ impl<'rp, 'rpr, D: RenderData<'rp>> RenderPassPipeline<'rp, 'rpr, D>{
             bind_group,
             offsets
         );
-    }
-
-    pub fn set_bind_groups(&mut self, bind_groups: &[&'rp wgpu::BindGroup]){
-        for (i, bind_group) in bind_groups.iter().enumerate(){
-            self.render_pass.render_pass.set_bind_group(
-                i as u32,
-                bind_group,
-                &[],
-            )
-        }
     }
 
     pub fn set_vertex_buffer(&mut self, index: u32, buffer_slice: wgpu::BufferSlice<'rp>){
@@ -254,7 +241,7 @@ pub struct RenderPass<'rp>{
 
 impl<'rp> RenderPass<'rp>{
 
-    pub fn set_pipeline<D: RenderDataLayout>(&mut self, pipeline: &'rp RenderPipeline<D>) -> RenderPassPipeline<'rp, '_, D>{
+    pub fn set_pipeline<D: RenderData<'rp>>(&mut self, pipeline: &'rp RenderPipeline<D>) -> RenderPassPipeline<'rp, '_, D>{
         self.render_pass.set_pipeline(&pipeline.pipeline);
         RenderPassPipeline{
             data: D::default(),

@@ -75,6 +75,7 @@ impl<V: Vert> Drawable for Mesh<V>{
     }
 }
 
+/*
 #[repr(C)]
 #[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct ModelTransforms{
@@ -128,4 +129,5 @@ impl<V: Vert> UpdatedDrawable<ModelTransforms> for Model<V>{
     }
 }
 
+*/
 

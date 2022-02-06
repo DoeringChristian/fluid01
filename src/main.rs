@@ -1,6 +1,6 @@
 use bytemuck::Zeroable;
 use wgpu::RenderPipeline;
-use wgpu_utils::{framework::{State, Framework}, mesh::{Mesh, Drawable}, vert::Vert2, pipeline::{self, RenderPipelineBuilder, shader_with_shaderc, VertexStateBuilder, FragmentStateBuilder, PipelineLayoutBuilder, RenderPass, RenderPassBuilder}, render_target::ColorAttachment, uniform::{UniformBindGroup, Uniform}, binding::{GetBindGroupLayout, GetBindGroup, CreateBindGroupLayout, BindGroup}, texture::Texture};
+use wgpu_utils::{framework::{State, Framework}, mesh::{Mesh, Drawable}, vert::Vert2, pipeline::{self, RenderPipelineBuilder, shader_with_shaderc, VertexStateBuilder, FragmentStateBuilder, PipelineLayoutBuilder, RenderPass, RenderPassBuilder, RenderData, PipelineLayout}, render_target::ColorAttachment, uniform::{UniformBindGroup, Uniform}, binding::{GetBindGroupLayout, GetBindGroup, CreateBindGroupLayout, BindGroup}, texture::Texture};
 
 #[macro_use]
 extern crate more_asserts;
@@ -19,15 +19,28 @@ struct GlobalShaderData{
     _pad0: f32,
 }
 
-#[derive(Default)]
-struct DisplayData{
 
+pub struct DisplayRenderData<'rd>{
+    global_uniform: Option<&'rd BindGroup<Uniform<GlobalShaderData>>>,
+    tex_vpf: Option<&'rd BindGroup<Texture>>,
+    tex_color: Option<&'rd BindGroup<Texture>>,
+    tex_float: Option<&'rd BindGroup<Texture>>,
 }
 
+impl<'rd> RenderData for DisplayRenderData<'rd>{
+    fn create_pipeline_layout(device: &wgpu::Device) -> PipelineLayout{
+        PipelineLayoutBuilder::new()
+            .push(&BindGroup::<Uniform<GlobalShaderData>>::create_bind_group_layout(device, None))
+            .push(&BindGroup::<Texture>::create_bind_group_layout(device, None))
+            .push(&BindGroup::<Texture>::create_bind_group_layout(device, None))
+            .push(&BindGroup::<Texture>::create_bind_group_layout(device, None))
+            .create(device, None)
+    }
+}
 
 struct WinState{
     mesh: Mesh<Vert2>,
-    display_rp: pipeline::RenderPipeline,
+    display_rp: pipeline::RenderPipeline<DisplayRenderData<'static>>,
     //global_uniform: UniformBindGroup<GlobalShaderData>,
     global_uniform: UniformBindGroup<GlobalShaderData>,
 
@@ -60,13 +73,15 @@ impl State for WinState{
             .push_target_replace(app.config.format)
             .build();
 
-        // TODO: put all textures together into one bindgroup.
+        let display_rpl = DisplayRenderData::create_pipeline_layout(&app.device);
+        /*
         let display_rpl = PipelineLayoutBuilder::new()
             .push(global_uniform.get_bind_group_layout())
             .push(&BindGroup::<Texture>::create_bind_group_layout(&app.device, None))
             .push(&BindGroup::<Texture>::create_bind_group_layout(&app.device, None))
             .push(&BindGroup::<Texture>::create_bind_group_layout(&app.device, None))
             .create(&app.device, None);
+        */
 
         let display_rp = RenderPipelineBuilder::new(display_vst, display_fst)
             .set_layout(&display_rpl)

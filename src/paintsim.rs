@@ -2,7 +2,7 @@ use crate::wgpu_utils::uniform;
 use crate::wgpu_utils::binding::{GetBindGroupLayout, GetBindGroup, BindGroup};
 use crate::wgpu_utils::uniform::UniformBindGroup;
 use crate::wgpu_utils::mesh::Drawable;
-use crate::wgpu_utils::pipeline::{shader_with_shaderc, VertexStateBuilder, FragmentStateBuilder, PipelineLayoutBuilder, RenderPipelineBuilder, RenderPassBuilder, PipelineLayout, RenderDataLayout};
+use crate::wgpu_utils::pipeline::{shader_with_shaderc, VertexStateBuilder, FragmentStateBuilder, PipelineLayoutBuilder, RenderPipelineBuilder, RenderPassBuilder, PipelineLayout, RenderData};
 use crate::wgpu_utils::render_target::ColorAttachment;
 use crate::wgpu_utils::{texture::Texture, mesh::Mesh, vert::Vert2, pipeline, buffer};
 use crate::GlobalShaderData;
@@ -21,16 +21,45 @@ pub struct PaintRenderData<'rd>{
     tex_float: Option<&'rd BindGroup<Texture>>,
 }
 
-pub struct PaintRenderDataLayout{
-
-}
-
-impl RenderDataLayout for PaintRenderDataLayout{
+impl<'rd> RenderData<'rd> for PaintRenderData<'rd>{
     fn create_pipeline_layout(device: &wgpu::Device) -> PipelineLayout {
         PipelineLayoutBuilder::new()
             .push(&BindGroup::<Uniform<GlobalShaderData>>::create_bind_group_layout(device, None))
             .push(&BindGroup::<Texture>::create_bind_group_layout(device, None))
             .push(&BindGroup::<Texture>::create_bind_group_layout(device, None))
+            .push(&BindGroup::<Texture>::create_bind_group_layout(device, None))
+            .create(device, None)
+    }
+
+    fn push_bindgroups_to(&self, rpass_ppl: &mut pipeline::RenderPassPipeline<'rd, '_, Self>) {
+        rpass_ppl.set_bind_group(0, self.global_uniform.unwrap(), &[]);
+        rpass_ppl.set_bind_group(1, self.tex_vpf.unwrap(), &[]);
+        rpass_ppl.set_bind_group(2, self.tex_color.unwrap(), &[]);
+        rpass_ppl.set_bind_group(3, self.tex_float.unwrap(), &[]);
+    }
+}
+
+pub struct BlurRenderData<'rd>{
+    global_uniform: Option<&'rd BindGroup<Uniform<GlobalShaderData>>>,
+    tex_vpf: Option<&'rd BindGroup<Texture>>,
+}
+
+impl<'rd> RenderData<'rd> for BlurRenderData<'rd>{
+    fn create_pipeline_layout(device: &wgpu::Device) -> PipelineLayout {
+        PipelineLayoutBuilder::new()
+            .push(&BindGroup::<Uniform<GlobalShaderData>>::create_bind_group_layout(device, None))
+            .push(&BindGroup::<Texture>::create_bind_group_layout(device, None))
+            .create(device, None)
+    }
+}
+
+pub struct PTSRenderData<'rd>{
+    tex: Option<&'rd BindGroup<Texture>>,
+}
+
+impl<'rd> RenderData<'rd> for PTSRenderData<'rd>{
+    fn create_pipeline_layout(device: &wgpu::Device) -> PipelineLayout {
+        PipelineLayoutBuilder::new()
             .push(&BindGroup::<Texture>::create_bind_group_layout(device, None))
             .create(device, None)
     }
@@ -52,12 +81,12 @@ pub struct PaintSim{
     // texture storing the initial image.
     pub tex_src: BindGroup<Texture>,
 
-    pipeline: pipeline::RenderPipeline<PaintRenderDataLayout>,
+    pipeline: pipeline::RenderPipeline<PaintRenderData<'static>>,
     //paint_render_data: PaintRenderData,
-    pipeline_blurwh: pipeline::RenderPipeline,
-    pipeline_blurwv: pipeline::RenderPipeline,
+    pipeline_blurwh: pipeline::RenderPipeline<BlurRenderData<'static>>,
+    pipeline_blurwv: pipeline::RenderPipeline<BlurRenderData<'static>>,
 
-    pipeline_src_to_color: pipeline::RenderPipeline,
+    pipeline_src_to_color: pipeline::RenderPipeline<BlurRenderData<'static>>,
 
     global_uniform: uniform::UniformBindGroup<GlobalShaderData>,
     
@@ -103,14 +132,16 @@ impl PaintSim{
             .push_target_replace(wgpu::TextureFormat::Rgba32Float)
             .build();
         
-        //let pipeline_layout = PaintRenderData::create_pipeline_layout(device);
+        let pipeline_layout = PaintRenderData::create_pipeline_layout(device);
         
+        /*
         let pipeline_layout = PipelineLayoutBuilder::new()
             .push(global_uniform.get_bind_group_layout())
             .push(tex_vpf.get_bind_group_layout())
             .push(tex_color.get_bind_group_layout())
             .push(tex_float.get_bind_group_layout())
             .create(device, None);
+        */
        
 
         let pipeline = RenderPipelineBuilder::new(vert_state, frag_state)
