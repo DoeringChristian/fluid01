@@ -47,7 +47,8 @@ impl AppState{
         let (device, queue) = adapter.request_device(
             &wgpu::DeviceDescriptor{
                 features: wgpu::Features::empty()
-                    .union(wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES),
+                    .union(wgpu::Features::TEXTURE_ADAPTER_SPECIFIC_FORMAT_FEATURES)
+                    .union(wgpu::Features::VERTEX_WRITABLE_STORAGE),
                 limits: wgpu::Limits::default(),
                 label: None,
             },

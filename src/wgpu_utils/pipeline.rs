@@ -100,7 +100,7 @@ pub struct VertexStateBuilder<'vsb>{
     index: usize,
 }
 
-impl <'vsb> VertexStateBuilder<'vsb>{
+impl<'vsb> VertexStateBuilder<'vsb>{
     pub fn new(vertex_shader: &'vsb wgpu::ShaderModule) -> Self{
         Self{
             vertex_buffer_layouts: Vec::new(),
@@ -233,6 +233,57 @@ impl<'rp, 'rpr> RenderPassPipeline<'rp, 'rpr>{
     }
 }
 
+pub struct ComputePipeline{
+    pub pipeline: wgpu::ComputePipeline,
+}
+
+pub struct ComputePipelineBuilder<'cpb>{
+    label: wgpu::Label<'cpb>,
+    layout: Option<&'cpb PipelineLayout>,
+    module: &'cpb wgpu::ShaderModule,
+    entry_point: &'cpb str,
+}
+
+impl<'cpb> ComputePipelineBuilder<'cpb>{
+
+    pub fn new(module: &'cpb wgpu::ShaderModule) -> Self{
+        Self{
+            label: None,
+            layout: None,
+            module,
+            entry_point: "main",
+        }
+    }
+
+    pub fn set_entry_point(mut self, entry_point: &'cpb str) -> Self{
+        self.entry_point = entry_point;
+        self
+    }
+
+    pub fn set_label(mut self, label: wgpu::Label<'cpb>) -> Self{
+        self.label = label;
+        self
+    }
+
+    pub fn set_layout(mut self, layout: &'cpb PipelineLayout) -> Self{
+        self.layout = Some(layout);
+        self
+    }
+
+    pub fn build(&mut self, device: &wgpu::Device) -> ComputePipeline{
+        let layout = self.layout.expect("no layout provided");
+        ComputePipeline{
+            pipeline: device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor{
+                label: self.label,
+                layout: Some(&layout.layout),
+                module: self.module,
+                entry_point: self.entry_point,
+            })
+        }
+    }
+}
+
+
 ///
 /// A Render Pass with a Pipeline.
 ///
@@ -333,12 +384,12 @@ pub fn shader_with_shaderc(device: &wgpu::Device, src: &str, kind: shaderc::Shad
     options.add_macro_definition("COMPUTE_SHADER", Some(if kind == shaderc::ShaderKind::Compute {"1"} else {"0"}));
 
     /*
-    options.set_include_callback(|name, include_type, source_file, _depth|{
-        let path = if include_type == shaderc::IncludeType::Relative{
-            Path::new(Path::new(source_file).parent().unwrap()).join(name)
-        }
-    });
-    */
+       options.set_include_callback(|name, include_type, source_file, _depth|{
+       let path = if include_type == shaderc::IncludeType::Relative{
+       Path::new(Path::new(source_file).parent().unwrap()).join(name)
+       }
+       });
+       */
 
     //println!("{:?}: \n{}", label, compiler.preprocess(src, "preprocess", entry_point, Some(&options)).unwrap().as_text());
 
@@ -404,25 +455,30 @@ impl<'rpb> RenderPipelineBuilder<'rpb>{
         self
     }
 
+    pub fn set_label(mut self, label: wgpu::Label<'rpb>) -> Self{
+        self.label = label;
+        self
+    }
+
     pub fn build(self, device: &wgpu::Device) -> RenderPipeline{
 
         /*
-        let layout = match self.layout{
-            Some(l) => Some(&l.layout),
-            _ => None,
-        };
-        */
+           let layout = match self.layout{
+           Some(l) => Some(&l.layout),
+           _ => None,
+           };
+           */
         let layout = self.layout.expect("no layout provided");
         /*
-        let fragment = match self.fragment{
-            Some(f) => Some(wgpu::FragmentState{
-                module: f.shader,
-                entry_point: f.entry_point,
-                targets: &self.fragment.unwrap().color_target_states,
-            }),
-            _ => None,
-        };
-        */
+           let fragment = match self.fragment{
+           Some(f) => Some(wgpu::FragmentState{
+           module: f.shader,
+           entry_point: f.entry_point,
+           targets: &self.fragment.unwrap().color_target_states,
+           }),
+           _ => None,
+           };
+           */
         let fragment = wgpu::FragmentState{
             module: self.fragment.shader,
             entry_point: self.fragment.entry_point,

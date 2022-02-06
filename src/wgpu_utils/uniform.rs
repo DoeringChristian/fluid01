@@ -98,6 +98,16 @@ impl<C: bytemuck::Pod> UniformVec<C>{
     }
 }
 
+impl<C: bytemuck::Pod> binding::BindGroupContent for UniformVec<C>{
+    fn push_entries_to(bind_group_layout_builder: &mut binding::BindGroupLayoutBuilder) {
+        bind_group_layout_builder.push_entry_all_ref(binding::wgsl::uniform());
+    }
+
+    fn push_resources_to<'bgb>(&'bgb self, bind_group_builder: &mut binding::BindGroupBuilder<'bgb>) {
+        bind_group_builder.resource_ref(self.buffer.as_entire_binding());
+    }
+}
+
 pub struct Uniform<C: bytemuck::Pod>{
     uniform_vec: UniformVec<C>,
 }

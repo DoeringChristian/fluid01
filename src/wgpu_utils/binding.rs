@@ -429,6 +429,14 @@ mod glsl{
 }
 
 pub mod wgsl{
+    pub fn buffer(read_only: bool) -> wgpu::BindingType {
+        wgpu::BindingType::Buffer {
+            ty: wgpu::BufferBindingType::Storage { read_only },
+            has_dynamic_offset: false,
+            min_binding_size: None,
+        }
+    }
+
     pub fn uniform() -> wgpu::BindingType{
         wgpu::BindingType::Buffer{
             ty: wgpu::BufferBindingType::Uniform,

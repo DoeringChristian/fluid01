@@ -1,8 +1,8 @@
-use crate::wgpu_utils::uniform;
 use crate::wgpu_utils::binding::{GetBindGroupLayout, GetBindGroup, BindGroup};
-use crate::wgpu_utils::uniform::UniformBindGroup;
+use crate::wgpu_utils::buffer::Buffer;
+use crate::wgpu_utils::uniform::{self, UniformBindGroup, Uniform, UniformVec};
 use crate::wgpu_utils::mesh::Drawable;
-use crate::wgpu_utils::pipeline::{shader_with_shaderc, VertexStateBuilder, FragmentStateBuilder, PipelineLayoutBuilder, RenderPipelineBuilder, RenderPassBuilder, PipelineLayout};
+use crate::wgpu_utils::pipeline::{shader_with_shaderc, VertexStateBuilder, FragmentStateBuilder, PipelineLayoutBuilder, RenderPipelineBuilder, RenderPassBuilder, PipelineLayout, ComputePipeline};
 use crate::wgpu_utils::render_target::ColorAttachment;
 use crate::wgpu_utils::{texture::Texture, mesh::Mesh, vert::Vert2, pipeline, buffer};
 use crate::GlobalShaderData;
@@ -47,10 +47,13 @@ pub struct PaintSim{
     pipeline: pipeline::RenderPipeline,
     pipeline_blurwh: pipeline::RenderPipeline,
     pipeline_blurwv: pipeline::RenderPipeline,
-
     pipeline_src_to_color: pipeline::RenderPipeline,
 
+    ppl_comp: ComputePipeline,
+
     global_uniform: uniform::UniformBindGroup<GlobalShaderData>,
+    in_buffer: BindGroup<Buffer<i32>>,
+    out_buffer: BindGroup<Buffer<i32>>,
     
     mesh: Mesh<Vert2>,
 
@@ -77,6 +80,20 @@ impl PaintSim{
             time: 0.0,
             _pad0: 0.0,
         });
+
+        let comp_shader = shader_with_shaderc(device, include_str!("shaders/comp_test01.glsl"), shaderc::ShaderKind::Compute, "main", None)?;
+
+        let in_buffer = BindGroup::new(Buffer::new_comp(device, None, &[0]), device);
+        let out_buffer = BindGroup::new(Buffer::new_comp(device, None, &[0]), device);
+
+        let comp_layout = PipelineLayoutBuilder::new()
+            .push(&BindGroup::<Buffer<i32>>::create_bind_group_layout(device, None))
+            .push(&BindGroup::<Buffer<i32>>::create_bind_group_layout(device, None))
+            .create(device, None);
+
+        let ppl_comp = pipeline::ComputePipelineBuilder::new(&comp_shader)
+            .set_layout(&comp_layout)
+            .build(device);
 
         // Simulation Pipeline:
         let vert_shader = shader_with_shaderc(device, include_str!("shaders/vf_paint04.glsl"), shaderc::ShaderKind::Vertex, "main", None)?;
@@ -185,6 +202,9 @@ impl PaintSim{
             pipeline_blurwh,
             pipeline_blurwv,
             pipeline_src_to_color,
+            ppl_comp,
+            in_buffer,
+            out_buffer,
             sc: 0,
         })
     }
@@ -205,6 +225,28 @@ impl PaintSim{
 
     pub fn step(&mut self, queue: &mut wgpu::Queue, encoder: &mut wgpu::CommandEncoder){
         self.global_uniform.borrow_ref(queue).time = self.sc as f32 /60.;
+
+        // test compute_shader
+        {
+            let mut cpass = encoder.begin_compute_pass(&wgpu::ComputePassDescriptor{
+                label: None,
+            });
+
+            cpass.set_pipeline(&self.ppl_comp.pipeline);
+            cpass.set_bind_group(0, self.in_buffer.get_bind_group(), &[]);
+            cpass.set_bind_group(1, self.out_buffer.get_bind_group(), &[]);
+            cpass.dispatch(1, 1, 1);
+
+            /*
+            let mapped_memory = self.out_buffer.content.buffer.slice(..);
+            let mapped_range = mapped_memory.get_mapped_range();
+            let res = mapped_range.first().unwrap();
+            println!("{:?}", res);
+
+            self.out_buffer.content.buffer.unmap();
+            */
+        }
+
         // Simulation step:
         {
             let mut render_pass = RenderPassBuilder::new()
