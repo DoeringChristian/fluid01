@@ -2,12 +2,31 @@ use crate::wgpu_utils::uniform;
 use crate::wgpu_utils::binding::{GetBindGroupLayout, GetBindGroup, BindGroup};
 use crate::wgpu_utils::uniform::UniformBindGroup;
 use crate::wgpu_utils::mesh::Drawable;
-use crate::wgpu_utils::pipeline::{shader_with_shaderc, VertexStateBuilder, FragmentStateBuilder, PipelineLayoutBuilder, RenderPipelineBuilder, RenderPassBuilder};
+use crate::wgpu_utils::pipeline::{shader_with_shaderc, VertexStateBuilder, FragmentStateBuilder, PipelineLayoutBuilder, RenderPipelineBuilder, RenderPassBuilder, PipelineLayout};
 use crate::wgpu_utils::render_target::ColorAttachment;
 use crate::wgpu_utils::{texture::Texture, mesh::Mesh, vert::Vert2, pipeline, buffer};
 use crate::GlobalShaderData;
 use crate::wgpu_utils::binding::CreateBindGroupLayout;
 use anyhow::*;
+
+#[allow(non_camel_case_types)]
+pub enum PaintPipelineLayout{
+    global_uniform = 0,
+    tex_vpf,
+    tex_color,
+    tex_float,
+}
+
+impl PaintPipelineLayout{
+    pub fn create_pipeline_layout(device: &wgpu::Device) -> PipelineLayout{
+        PipelineLayoutBuilder::new()
+            .push(&UniformBindGroup::<GlobalShaderData>::create_bind_group_layout(device, None))
+            .push(&BindGroup::<Texture>::create_bind_group_layout(device, None))
+            .push(&BindGroup::<Texture>::create_bind_group_layout(device, None))
+            .push(&BindGroup::<Texture>::create_bind_group_layout(device, None))
+            .create(device, None)
+    }
+}
 
 pub struct PaintSim{
     // texture storing the velocity, preasure and fluidity.
@@ -73,12 +92,15 @@ impl PaintSim{
             .push_target_replace(wgpu::TextureFormat::Rgba32Float)
             .build();
         
+        let pipeline_layout = PaintPipelineLayout::create_pipeline_layout(device);
+        /*
         let pipeline_layout = PipelineLayoutBuilder::new()
             .push(global_uniform.get_bind_group_layout())
             .push(tex_vpf.get_bind_group_layout())
             .push(tex_color.get_bind_group_layout())
             .push(tex_float.get_bind_group_layout())
             .create(device, None);
+        */
 
         let pipeline = RenderPipelineBuilder::new(vert_state, frag_state)
             .set_layout(&pipeline_layout)
@@ -193,10 +215,10 @@ impl PaintSim{
 
             let mut render_pass_pipeline = render_pass.set_pipeline(&self.pipeline);
 
-            render_pass_pipeline.set_bind_group(0, self.global_uniform.get_bind_group(), &[]);
-            render_pass_pipeline.set_bind_group(1, self.tex_vpf.get_bind_group(), &[]);
-            render_pass_pipeline.set_bind_group(2, self.tex_color.get_bind_group(), &[]);
-            render_pass_pipeline.set_bind_group(3, self.tex_float.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group(PaintPipelineLayout::global_uniform as u32, self.global_uniform.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group(PaintPipelineLayout::tex_vpf as u32, self.tex_vpf.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group(PaintPipelineLayout::tex_color as u32, self.tex_color.get_bind_group(), &[]);
+            render_pass_pipeline.set_bind_group(PaintPipelineLayout::tex_float as u32, self.tex_float.get_bind_group(), &[]);
 
             self.mesh.draw(&mut render_pass_pipeline);
         }

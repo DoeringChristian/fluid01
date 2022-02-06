@@ -1,3 +1,5 @@
+use super::binding::BindGroup;
+use super::binding::CreateBindGroupLayout;
 use super::buffer::*;
 use super::binding;
 use wgpu::util::DeviceExt;
@@ -148,5 +150,11 @@ impl<C: bytemuck::Pod> Deref for UniformBindGroup<C>{
 impl<C: bytemuck::Pod> DerefMut for UniformBindGroup<C>{
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.bind_group
+    }
+}
+
+impl<C: bytemuck::Pod> CreateBindGroupLayout for UniformBindGroup<C>{
+    fn create_bind_group_layout(device: &wgpu::Device, label: Option<&str>) -> binding::BindGroupLayoutWithDesc {
+        BindGroup::<Uniform<C>>::create_bind_group_layout(device, label)
     }
 }
