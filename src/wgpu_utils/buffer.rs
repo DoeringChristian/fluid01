@@ -3,9 +3,16 @@ use wgpu::util::DeviceExt;
 use std::{marker::PhantomData, ops::{Deref, DerefMut, RangeBounds}, borrow::{Borrow, BorrowMut}, future, cell::Cell};
 use binding::CreateBindGroupLayout;
 use std::mem::ManuallyDrop;
+use std::ops::Bound;
 
 use super::binding;
 
+/*
+pub enum BufferTyped<C: bytemuck::Pod>{
+    SrcBuffer(Buffer<C>),
+    DstBuffer(Buffer<C>),
+}
+*/
 
 pub struct Buffer<C: bytemuck::Pod>{
     pub buffer: wgpu::Buffer,
@@ -57,6 +64,43 @@ impl<C: bytemuck::Pod> Buffer<C>{
 
     pub fn len(&self) -> usize{
         self.len
+    }
+
+    /// TODO: Add buffer slice and copy operator for following syntax: 
+    ///
+    /// ``` rust
+    /// buffer.slice(0..3).copy(offset).to(dst_buffer);
+    /// ```
+    pub fn copy_to_buffer<S: RangeBounds<wgpu::BufferAddress>>(&self, encoder: &mut wgpu::CommandEncoder, dst: &mut Buffer<C>, src_bounds: S, dst_offset: wgpu::BufferAddress){
+        let start_bound = src_bounds.start_bound();
+        let end_bound = src_bounds.end_bound();
+
+        let start_bound = match start_bound{
+            Bound::Unbounded => 0 as wgpu::BufferAddress,
+            Bound::Included(offset) => {offset + 0},
+            Bound::Excluded(offset) => {offset + 1},
+        };
+
+        let end_bound = match end_bound{
+            Bound::Unbounded => {(self.len() -1) as wgpu::BufferAddress},
+            Bound::Included(offset) => {offset - 0},
+            Bound::Excluded(offset) => {offset - 1},
+        };
+
+        let start_bound = start_bound * std::mem::size_of::<C>() as u64;
+        let end_bound = end_bound * std::mem::size_of::<C>() as u64;
+
+        let copy_size = end_bound - start_bound;
+
+        let dst_offset = dst_offset * std::mem::size_of::<C>() as u64;
+
+        encoder.copy_buffer_to_buffer(
+            &self.buffer,
+            start_bound,
+            &dst.buffer,
+            dst_offset,
+            copy_size
+        );
     }
 }
 
