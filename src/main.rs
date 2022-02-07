@@ -121,6 +121,7 @@ impl State for WinState{
         app.device.poll(wgpu::Maintain::Wait);
 
         let mut test = MappedBuffer::new_storage(&app.device, None, &[0, 1, 2]);
+        test.slice_blocking_mut(.., &app.device)[0] = 3;
         {
             println!("{:?}", test.slice_blocking(.., &app.device)[0]);
         }

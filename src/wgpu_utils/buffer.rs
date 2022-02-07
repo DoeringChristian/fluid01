@@ -317,7 +317,13 @@ impl<C: bytemuck::Pod> MappedBuffer<C>{
             buffer_view: ManuallyDrop::new(buffer_slice.get_mapped_range_mut()),
         }
     }
-
+    
+    // TODO:
+    // Add syntax similar to:
+    //
+    // ```rust
+    // mapped_buffer.slice_mut(..).poll(device).block_on()[0] = 1;
+    // ```
     pub fn slice_blocking_mut<'mbr, S: RangeBounds<wgpu::BufferAddress>>(&'mbr mut self, bounds: S, device: &wgpu::Device) -> MappedBufferViewMut<'mbr, C>{
         pollster::block_on(self.slice_async_mut(bounds, device))
     }
