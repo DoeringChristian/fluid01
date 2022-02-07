@@ -7,6 +7,21 @@ use std::ops::Bound;
 
 use super::binding;
 
+
+// TODO: find a way to implement diffrent types of buffers.
+
+pub type MappedBuffer<C: bytemuck::Pod> = Buffer<C>;
+
+impl<C: bytemuck::Pod> MappedBuffer<C>{
+    pub fn new_mapped(device: &wgpu::Device, usage: wgpu::BufferUsages, label: wgpu::Label, data: &[C]) -> Self{
+        Self::new(device, usage | wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::MAP_WRITE, label, data)
+    }
+
+    pub fn new_mapped_storage(device: &wgpu::Device, label: wgpu::Label, data: &[C]) -> Self{
+        Self::new_mapped(device, wgpu::BufferUsages::STORAGE, label, data)
+    }
+}
+
 pub struct BufferSlice<'bs, C: bytemuck::Pod>{
     buffer: &'bs Buffer<C>,
     slice: wgpu::BufferSlice<'bs>,
@@ -125,7 +140,7 @@ impl<'bs, C: bytemuck::Pod> BufferSlice<'bs, C>{
 }
 
 ///
-/// TODO: Buffer type as generic.
+/// TODO: Implement some way of differentiating buffer usages at compile time.
 ///
 pub struct Buffer<C: bytemuck::Pod>{
     pub buffer: wgpu::Buffer,
@@ -175,13 +190,17 @@ impl<C: bytemuck::Pod> Buffer<C>{
         Self::new(device, wgpu::BufferUsages::INDEX, label, data)
     }
 
+    /*
     pub fn new_mapped(device: &wgpu::Device, usage: wgpu::BufferUsages, label: wgpu::Label, data: &[C]) -> Self{
         Self::new(device, usage | wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::MAP_WRITE, label, data)
     }
+    */
 
+    /*
     pub fn new_mapped_storage(device: &wgpu::Device, label: wgpu::Label, data: &[C]) -> Self{
         Self::new_mapped(device, wgpu::BufferUsages::STORAGE, label, data)
     }
+    */
 
     pub fn len(&self) -> usize{
         self.len
