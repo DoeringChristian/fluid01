@@ -1,7 +1,8 @@
 use anyhow::*;
 use wgpu::util::DeviceExt;
-use std::{marker::PhantomData, ops::{Deref, DerefMut, RangeBounds}, borrow::{Borrow, BorrowMut}};
+use std::{marker::PhantomData, ops::{Deref, DerefMut, RangeBounds}, borrow::{Borrow, BorrowMut}, future, cell::Cell};
 use binding::CreateBindGroupLayout;
+use std::mem::ManuallyDrop;
 
 use super::binding;
 
@@ -161,7 +162,7 @@ impl<C: bytemuck::Pod> DerefMut for Buffer<C>{
 
 pub struct MappedBufferView<'mbr, C: bytemuck::Pod>{
     mapped_buffer: &'mbr MappedBuffer<C>,
-    buffer_view: wgpu::BufferView<'mbr>,
+    buffer_view: ManuallyDrop<wgpu::BufferView<'mbr>>,
 }
 
 impl<'mbr, C: bytemuck::Pod> AsRef<[C]> for MappedBufferView<'mbr, C>{
@@ -180,13 +181,18 @@ impl<'mbr, C: bytemuck::Pod> Deref for MappedBufferView<'mbr, C>{
 
 impl<'mbr, C: bytemuck::Pod> Drop for MappedBufferView<'mbr, C>{
     fn drop(&mut self) {
-        self.mapped_buffer.buffer.unmap();
+        // SAFETY: Dropping buffer view before unmap is required.
+        // self.buffer_view is also not used afterwards.
+        unsafe{
+            ManuallyDrop::drop(&mut self.buffer_view);
+        }
+        self.mapped_buffer.unmap();
     }
 }
 
 pub struct MappedBufferViewMut<'mbr, C: bytemuck::Pod>{
     mapped_buffer: &'mbr MappedBuffer<C>,
-    buffer_view: wgpu::BufferViewMut<'mbr>,
+    buffer_view: ManuallyDrop<wgpu::BufferViewMut<'mbr>>,
 }
 
 impl<'mbr, C: bytemuck::Pod> AsMut<[C]> for MappedBufferViewMut<'mbr, C>{
@@ -211,6 +217,11 @@ impl<'mbr, C: bytemuck::Pod> DerefMut for MappedBufferViewMut<'mbr, C>{
 
 impl<'mbr, C: bytemuck::Pod> Drop for MappedBufferViewMut<'mbr, C>{
     fn drop(&mut self) {
+        // SAFETY: Dropping buffer view before unmap is required.
+        // self.buffer_view is also not used afterwards.
+        unsafe{
+            ManuallyDrop::drop(&mut self.buffer_view);
+        }
         self.mapped_buffer.buffer.unmap();
     }
 }
@@ -224,24 +235,26 @@ impl<'mbr, C: bytemuck::Pod> Drop for MappedBufferViewMut<'mbr, C>{
 /// let array = [0, 1, 2, 3, 4];
 /// let mapped_buffer = MappedBuffer::new_storage(device, None, array);
 ///
-/// mapped_buffer.slice(..)[0] = 1;
+/// mapped_buffer.slice_blocking(..)[0] = 1;
 ///
 /// let i = mapped_buffer.slice(..)[0];
 /// ```
 /// TODO: Add new_mapped_at_creation.
-pub struct MappedBuffer<C: bytemuck::Pod>(Buffer<C>);
+pub struct MappedBuffer<C: bytemuck::Pod>{ 
+    buffer: Buffer<C>,
+}
 
 impl<C: bytemuck::Pod> MappedBuffer<C>{
     pub fn new_empty(device: &wgpu::Device, usage: wgpu::BufferUsages, label: wgpu::Label, len: usize) -> Self{
-        Self(
-            Buffer::new_empty(device, usage | wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::MAP_WRITE, label, len)
-        )
+        Self{ 
+            buffer: Buffer::new_empty(device, usage | wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::MAP_WRITE, label, len),
+        }
     }
 
     pub fn new(device: &wgpu::Device, usage: wgpu::BufferUsages, label: wgpu::Label, data: &[C]) -> Self{
-        Self(
-            Buffer::new(device, usage | wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::MAP_WRITE, label, data)
-        )
+        Self{ 
+            buffer: Buffer::new(device, usage | wgpu::BufferUsages::MAP_READ | wgpu::BufferUsages::MAP_WRITE, label, data),
+        }
     }
 
     pub fn new_vert(device: &wgpu::Device, label: wgpu::Label, data: &[C]) -> Self{
@@ -260,19 +273,53 @@ impl<C: bytemuck::Pod> MappedBuffer<C>{
         Self::new(device, wgpu::BufferUsages::STORAGE, label, data)
     }
 
-    pub fn slice<'mbr, S: RangeBounds<wgpu::BufferAddress>>(&'mbr self, bounds: S) -> MappedBufferView<'mbr, C>{
+    ///
+    /// Get an imutable mapped buffer view to the buffer.
+    ///
+    /// self has to be mut since we only can only have one mapped buffer view.
+    ///
+    pub async fn slice_async<'mbr, S: RangeBounds<wgpu::BufferAddress>>(&'mbr mut self, bounds: S, device: &wgpu::Device) -> MappedBufferView<'mbr, C>{
+        let buffer_slice = self.buffer.slice(bounds);
+        let mapping = buffer_slice.map_async(wgpu::MapMode::Read);
+
+        device.poll(wgpu::Maintain::Wait);
+
+        mapping.await.unwrap();
+
         MappedBufferView{
             mapped_buffer: self,
-            buffer_view: self.buffer.slice(bounds).get_mapped_range(),
+            buffer_view: ManuallyDrop::new(buffer_slice.get_mapped_range()),
         }
     }
 
+    ///
+    /// Get an imutable MappedBufferView to the buffer blocking the thread (not recomended).
+    ///
+    pub fn slice_blocking<'mbr, S: RangeBounds<wgpu::BufferAddress>>(&'mbr mut self, bounds: S, device: &wgpu::Device) -> MappedBufferView<'mbr, C>{
+        pollster::block_on(self.slice_async(bounds, device))
+    }
+
     // TODO: async and not async methodes for slicing buffer
-    pub fn slice_mut<'mbr, S: RangeBounds<wgpu::BufferAddress>>(&'mbr mut self, bounds: S) -> MappedBufferViewMut<'mbr, C>{
+    ///
+    /// Get MappedBufferViewMut to the buffer.
+    /// Only for writing to the buffer.
+    ///
+    pub async fn slice_async_mut<'mbr, S: RangeBounds<wgpu::BufferAddress>>(&'mbr mut self, bounds: S, device: &wgpu::Device) -> MappedBufferViewMut<'mbr, C>{
+        let buffer_slice = self.buffer.slice(bounds);
+        let mapping = buffer_slice.map_async(wgpu::MapMode::Write);
+
+        device.poll(wgpu::Maintain::Wait);
+
+        mapping.await.unwrap();
+
         MappedBufferViewMut{
             mapped_buffer: self,
-            buffer_view: self.buffer.slice(bounds).get_mapped_range_mut(),
+            buffer_view: ManuallyDrop::new(buffer_slice.get_mapped_range_mut()),
         }
+    }
+
+    pub fn slice_blocking_mut<'mbr, S: RangeBounds<wgpu::BufferAddress>>(&'mbr mut self, bounds: S, device: &wgpu::Device) -> MappedBufferViewMut<'mbr, C>{
+        pollster::block_on(self.slice_async_mut(bounds, device))
     }
 }
 
@@ -280,12 +327,12 @@ impl<C: bytemuck::Pod> Deref for MappedBuffer<C>{
     type Target = Buffer<C>;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.buffer
     }
 }
 
 impl<C: bytemuck::Pod> DerefMut for MappedBuffer<C>{
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &mut self.buffer
     }
 }

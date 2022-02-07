@@ -121,7 +121,10 @@ impl State for WinState{
         app.device.poll(wgpu::Maintain::Wait);
 
         let mut test = MappedBuffer::new_storage(&app.device, None, &[0, 1, 2]);
-        //test.slice_mut(..)[0] = 1;
+        {
+            println!("{:?}", test.slice_blocking(.., &app.device)[0]);
+        }
+        //test.unmap();
 
 
         self.paintsim.prepare(&app.queue, &mut encoder);
