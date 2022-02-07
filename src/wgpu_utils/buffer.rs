@@ -56,7 +56,7 @@ impl<C: bytemuck::Pod> Buffer<C>{
     }
 
     pub fn len(&self) -> usize{
-        self.len / std::mem::size_of::<C>()
+        self.len
     }
 }
 
@@ -382,64 +382,16 @@ impl<C: bytemuck::Pod> MappedBuffer<C>{
             buffer_slice: self.buffer.slice(bounds),
         }
     }
-    
-    /*
+}
 
-    ///
-    /// Get an imutable mapped buffer view to the buffer.
-    ///
-    /// self has to be mut since we only can only have one mapped buffer view.
-    ///
-    pub async fn slice_async<'mbr, S: RangeBounds<wgpu::BufferAddress>>(&'mbr mut self, bounds: S, device: &wgpu::Device) -> MappedBufferView<'mbr, C>{
-        let buffer_slice = self.buffer.slice(bounds);
-        let mapping = buffer_slice.map_async(wgpu::MapMode::Read);
-
-        device.poll(wgpu::Maintain::Wait);
-
-        mapping.await.unwrap();
-
-        MappedBufferView{
-            mapped_buffer: self,
-            buffer_view: ManuallyDrop::new(buffer_slice.get_mapped_range()),
-        }
+impl<C: bytemuck::Pod> binding::BindGroupContent for MappedBuffer<C>{
+    fn push_entries_to(bind_group_layout_builder: &mut binding::BindGroupLayoutBuilder) {
+        Buffer::<C>::push_entries_to(bind_group_layout_builder);
     }
 
-    ///
-    /// Get an imutable MappedBufferView to the buffer blocking the thread (not recomended).
-    ///
-    pub fn slice_blocking<'mbr, S: RangeBounds<wgpu::BufferAddress>>(&'mbr mut self, bounds: S, device: &wgpu::Device) -> MappedBufferView<'mbr, C>{
-        pollster::block_on(self.slice_async(bounds, device))
+    fn push_resources_to<'bgb>(&'bgb self, bind_group_builder: &mut binding::BindGroupBuilder<'bgb>) {
+        self.buffer.push_resources_to(bind_group_builder);
     }
-
-    // TODO: async and not async methodes for slicing buffer
-    ///
-    /// Get MappedBufferViewMut to the buffer.
-    /// Only for writing to the buffer.
-    ///
-    pub async fn slice_async_mut<'mbr, S: RangeBounds<wgpu::BufferAddress>>(&'mbr mut self, bounds: S, device: &wgpu::Device) -> MappedBufferViewMut<'mbr, C>{
-        let buffer_slice = self.buffer.slice(bounds);
-        let mapping = buffer_slice.map_async(wgpu::MapMode::Write);
-
-        device.poll(wgpu::Maintain::Wait);
-
-        mapping.await.unwrap();
-
-        MappedBufferViewMut{
-            mapped_buffer: self,
-            buffer_view: ManuallyDrop::new(buffer_slice.get_mapped_range_mut()),
-        }
-    }
-    
-    // TODO:
-    // Add syntax similar to:
-    //
-    // ```rust
-    // mapped_buffer.slice_mut(..).poll(device).block_on()[0] = 1;
-    // ```
-    pub fn slice_blocking_mut<'mbr, S: RangeBounds<wgpu::BufferAddress>>(&'mbr mut self, bounds: S, device: &wgpu::Device) -> MappedBufferViewMut<'mbr, C>{
-        pollster::block_on(self.slice_async_mut(bounds, device))
-    }
-    */
 }
 
 impl<C: bytemuck::Pod> Deref for MappedBuffer<C>{

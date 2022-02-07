@@ -83,7 +83,7 @@ impl State for WinState{
         });
 
         for i in 0..6{
-            self.paintsim.step(&mut app.queue, &mut encoder);
+            self.paintsim.step(&mut app.queue, &mut encoder, &app.device);
         }
 
         // render result to view.

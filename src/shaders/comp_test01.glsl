@@ -11,7 +11,7 @@ layout(set = 1, binding = 0) buffer OutBuffer{
 void main(){
     uint i = gl_GlobalInvocationID.x;
 
-    out_buffer[i] = 1;
+    out_buffer[i] = in_buffer[i]+4;
 }
 
 #endif

@@ -52,8 +52,8 @@ pub struct PaintSim{
     ppl_comp: ComputePipeline,
 
     global_uniform: uniform::UniformBindGroup<GlobalShaderData>,
-    in_buffer: BindGroup<Buffer<i32>>,
-    out_buffer: BindGroup<Buffer<i32>>,
+    in_buffer: BindGroup<MappedBuffer<i32>>,
+    out_buffer: BindGroup<MappedBuffer<i32>>,
     
     mesh: Mesh<Vert2>,
 
@@ -83,12 +83,12 @@ impl PaintSim{
 
         let comp_shader = shader_with_shaderc(device, include_str!("shaders/comp_test01.glsl"), shaderc::ShaderKind::Compute, "main", None)?;
 
-        let in_buffer = BindGroup::new(Buffer::new_storage(device, None, &[0]), device);
-        let out_buffer = BindGroup::new(Buffer::new_storage(device, None, &[0]), device);
+        let in_buffer = BindGroup::new(MappedBuffer::new_storage(device, None, &[0, 1, 2, 3]), device);
+        let out_buffer = BindGroup::new(MappedBuffer::new_storage(device, None, &[0, 1, 2, 3]), device);
 
         let comp_layout = PipelineLayoutBuilder::new()
-            .push(&BindGroup::<Buffer<i32>>::create_bind_group_layout(device, None))
-            .push(&BindGroup::<Buffer<i32>>::create_bind_group_layout(device, None))
+            .push(&BindGroup::<MappedBuffer<i32>>::create_bind_group_layout(device, None))
+            .push(&BindGroup::<MappedBuffer<i32>>::create_bind_group_layout(device, None))
             .create(device, None);
 
         let ppl_comp = pipeline::ComputePipelineBuilder::new(&comp_shader)
@@ -223,7 +223,7 @@ impl PaintSim{
         }
     }
 
-    pub fn step(&mut self, queue: &mut wgpu::Queue, encoder: &mut wgpu::CommandEncoder){
+    pub fn step(&mut self, queue: &mut wgpu::Queue, encoder: &mut wgpu::CommandEncoder, device: &wgpu::Device){
         self.global_uniform.borrow_ref(queue).time = self.sc as f32 /60.;
 
         // test compute_shader
@@ -235,8 +235,7 @@ impl PaintSim{
             cpass.set_pipeline(&self.ppl_comp.pipeline);
             cpass.set_bind_group(0, self.in_buffer.get_bind_group(), &[]);
             cpass.set_bind_group(1, self.out_buffer.get_bind_group(), &[]);
-            cpass.dispatch(1, 1, 1);
-
+            cpass.dispatch(self.in_buffer.len() as u32, 1, 1);
             /*
             let mapped_memory = self.out_buffer.content.buffer.slice(..);
             let mapped_range = mapped_memory.get_mapped_range();
@@ -246,6 +245,7 @@ impl PaintSim{
             self.out_buffer.content.buffer.unmap();
             */
         }
+        println!("{:?}", self.out_buffer.slice(..).map_blocking(device).as_ref());
 
         // Simulation step:
         {
