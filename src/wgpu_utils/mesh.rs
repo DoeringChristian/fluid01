@@ -66,8 +66,8 @@ impl<V: Vert> Mesh<V>{
 impl<V: Vert> Drawable for Mesh<V>{
     fn draw<'rp>(&'rp self, render_pass: &'_ mut pipeline::RenderPassPipeline<'rp, '_>) {
 
-        render_pass.set_vertex_buffer(0, self.vert_buffer.slice(..));
-        render_pass.set_index_buffer(self.idx_buffer.slice(..), wgpu::IndexFormat::Uint32);
+        render_pass.set_vertex_buffer(0, self.vert_buffer.buffer.slice(..));
+        render_pass.set_index_buffer(self.idx_buffer.buffer.slice(..), wgpu::IndexFormat::Uint32);
         render_pass.draw_indexed(0..self.num_indices, 0, 0..1);
     }
     fn vert_buffer_layout(&self) -> wgpu::VertexBufferLayout<'static>{

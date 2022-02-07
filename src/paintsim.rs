@@ -1,10 +1,10 @@
 use crate::wgpu_utils::binding::{GetBindGroupLayout, GetBindGroup, BindGroup};
-use crate::wgpu_utils::buffer::{Buffer, MappedBuffer};
+use crate::wgpu_utils::buffer::{Buffer, self};
 use crate::wgpu_utils::uniform::{self, UniformBindGroup, Uniform, UniformVec};
 use crate::wgpu_utils::mesh::Drawable;
 use crate::wgpu_utils::pipeline::{shader_with_shaderc, VertexStateBuilder, FragmentStateBuilder, PipelineLayoutBuilder, RenderPipelineBuilder, RenderPassBuilder, PipelineLayout, ComputePipeline};
 use crate::wgpu_utils::render_target::ColorAttachment;
-use crate::wgpu_utils::{texture::Texture, mesh::Mesh, vert::Vert2, pipeline, buffer};
+use crate::wgpu_utils::{texture::Texture, mesh::Mesh, vert::Vert2, pipeline};
 use crate::GlobalShaderData;
 use crate::wgpu_utils::binding::CreateBindGroupLayout;
 use anyhow::*;
@@ -52,8 +52,8 @@ pub struct PaintSim{
     ppl_comp: ComputePipeline,
 
     global_uniform: uniform::UniformBindGroup<GlobalShaderData>,
-    in_buffer: BindGroup<MappedBuffer<i32>>,
-    out_buffer: BindGroup<MappedBuffer<i32>>,
+    in_buffer: BindGroup<Buffer<i32>>,
+    out_buffer: BindGroup<Buffer<i32>>,
     
     mesh: Mesh<Vert2>,
 
@@ -83,12 +83,12 @@ impl PaintSim{
 
         let comp_shader = shader_with_shaderc(device, include_str!("shaders/comp_test01.glsl"), shaderc::ShaderKind::Compute, "main", None)?;
 
-        let in_buffer = BindGroup::new(MappedBuffer::new_storage(device, None, &[0, 1, 2, 3]), device);
-        let out_buffer = BindGroup::new(MappedBuffer::new_storage(device, None, &[0, 1, 2, 3]), device);
+        let in_buffer = BindGroup::new(Buffer::new_storage(device, None, &[0, 1, 2, 3]), device);
+        let out_buffer = BindGroup::new(Buffer::new_storage(device, None, &[0, 1, 2, 3]), device);
 
         let comp_layout = PipelineLayoutBuilder::new()
-            .push(&BindGroup::<MappedBuffer<i32>>::create_bind_group_layout(device, None))
-            .push(&BindGroup::<MappedBuffer<i32>>::create_bind_group_layout(device, None))
+            .push(&BindGroup::<Buffer<i32>>::create_bind_group_layout(device, None))
+            .push(&BindGroup::<Buffer<i32>>::create_bind_group_layout(device, None))
             .create(device, None);
 
         let ppl_comp = pipeline::ComputePipelineBuilder::new(&comp_shader)

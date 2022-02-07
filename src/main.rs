@@ -1,6 +1,6 @@
 use bytemuck::Zeroable;
 use wgpu::RenderPipeline;
-use wgpu_utils::{framework::{State, Framework}, mesh::{Mesh, Drawable}, vert::Vert2, pipeline::{self, RenderPipelineBuilder, shader_with_shaderc, VertexStateBuilder, FragmentStateBuilder, PipelineLayoutBuilder, RenderPass, RenderPassBuilder}, render_target::ColorAttachment, uniform::{UniformBindGroup, Uniform}, binding::{GetBindGroupLayout, GetBindGroup, CreateBindGroupLayout, BindGroup}, texture::Texture, buffer::MappedBuffer};
+use wgpu_utils::{framework::{State, Framework}, mesh::{Mesh, Drawable}, vert::Vert2, pipeline::{self, RenderPipelineBuilder, shader_with_shaderc, VertexStateBuilder, FragmentStateBuilder, PipelineLayoutBuilder, RenderPass, RenderPassBuilder}, render_target::ColorAttachment, uniform::{UniformBindGroup, Uniform}, binding::{GetBindGroupLayout, GetBindGroup, CreateBindGroupLayout, BindGroup}, texture::Texture, buffer::Buffer};
 
 #[macro_use]
 extern crate more_asserts;
@@ -118,7 +118,7 @@ impl State for WinState{
             label: Some("PreRenderEncoder"),
         });
 
-        let mut test = MappedBuffer::new_storage(&app.device, None, &[0, 1, 2]);
+        let mut test = Buffer::new_storage(&app.device, None, &[0, 1, 2]);
         test.slice(..).map_blocking_mut(&app.device)[0] = 3;
         println!("{:?}", test.slice(..).map_blocking(&app.device)[0]);
 
