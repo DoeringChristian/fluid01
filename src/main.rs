@@ -118,15 +118,9 @@ impl State for WinState{
             label: Some("PreRenderEncoder"),
         });
 
-        app.device.poll(wgpu::Maintain::Wait);
-
         let mut test = MappedBuffer::new_storage(&app.device, None, &[0, 1, 2]);
-        test.slice_blocking_mut(.., &app.device)[0] = 3;
-        {
-            println!("{:?}", test.slice_blocking(.., &app.device)[0]);
-        }
-        //test.unmap();
-
+        test.slice(..).map_blocking_mut(&app.device)[0] = 3;
+        println!("{:?}", test.slice(..).map_blocking(&app.device)[0]);
 
         self.paintsim.prepare(&app.queue, &mut encoder);
 
