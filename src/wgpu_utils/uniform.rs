@@ -61,7 +61,7 @@ impl<C: bytemuck::Pod> Drop for UniformVecRef<'_, C>{
 }
 
 pub struct UniformVec<C: bytemuck::Pod>{
-    buffer: DynamicBuffer<C>,
+    buffer: Buffer<C>,
 
     content: Vec<C>,
 }
@@ -74,7 +74,7 @@ impl<C: bytemuck::Pod> UniformVec<C>{
     }
 
     pub fn new(device: &wgpu::Device, src: &[C]) -> Self{
-        let buffer = DynamicBuffer::new_uniform(
+        let buffer = Buffer::new_dst_uniform(
             device, 
             Some(&format!("UniformBuffer: {}", Self::name())),
             src,
